@@ -25,9 +25,13 @@ mkdir -p "${ROOT_DIR}/logs"
 mkdir -p "${ROOT_DIR}/tmp/sessions"
 mkdir -p "${ROOT_DIR}/tmp/uploads"
 mkdir -p "${ROOT_DIR}/data/mariadb"
+mkdir -p "${ROOT_DIR}/prestashop/var/cache"
+mkdir -p "${ROOT_DIR}/prestashop/var/logs"
 
-# 1. PHP Mock / System Link
-if command -v php-cgi >/dev/null 2>&1; then
+# 1. PHP Runtime
+if [ -f "${RUNTIME_DIR}/php/php-fpm" ] || [ -f "${RUNTIME_DIR}/php/php-cgi" ]; then
+    echo "--> Existing PHP binary found in ${RUNTIME_DIR}/php."
+elif command -v php-cgi >/dev/null 2>&1; then
     echo "--> Linking system php-cgi..."
     ln -sf "$(command -v php-cgi)" "${RUNTIME_DIR}/php/php-cgi"
 elif command -v php >/dev/null 2>&1; then

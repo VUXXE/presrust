@@ -80,6 +80,10 @@ impl EnvPaths {
         fs::create_dir_all(tmp_dir.join("sessions"))?;
         fs::create_dir_all(tmp_dir.join("uploads"))?;
         fs::create_dir_all(data_dir.join("mariadb"))?;
+        if app_dir.exists() {
+            let _ = fs::create_dir_all(app_dir.join("var/cache"));
+            let _ = fs::create_dir_all(app_dir.join("var/logs"));
+        }
 
         Ok(Self {
             root_dir,

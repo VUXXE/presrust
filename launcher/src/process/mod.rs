@@ -179,6 +179,25 @@ mod tests {
             "Services should remain running after spawn thread exits!"
         );
 
+        // Query /install/ to verify Nginx -> PHP-FPM -> PrestaShop installer executes
+        if let Ok(mut stream) = std::net::TcpStream::connect("127.0.0.1:8080") {
+            use std::io::{Read, Write};
+            let _ = stream.write_all(
+                b"GET /install/ HTTP/1.1\r\nHost: 127.0.0.1:8080\r\nConnection: close\r\n\r\n",
+            );
+            let mut response = String::new();
+            let _ = stream.read_to_string(&mut response);
+            println!(
+                "HTTP Response preview:\n{}",
+                response.lines().take(15).collect::<Vec<_>>().join("\n")
+            );
+            assert!(
+                !response.contains("We can&#039;t start installation") && !response.contains("We can't start installation"),
+                "PrestaShop installer should not fail with missing requirements! Response snippet: {}",
+                &response[..response.len().min(500)]
+            );
+        }
+
         manager.stop_all().expect("Failed to stop services");
     }
 }

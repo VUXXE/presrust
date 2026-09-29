@@ -29,10 +29,14 @@ impl PhpService {
 
     pub fn find_binary(paths: &EnvPaths) -> Result<PathBuf> {
         let candidates = [
+            paths.runtime_dir.join("linux-x86_64/php/php-fpm"),
             paths.runtime_dir.join("linux-x86_64/php/php-cgi"),
             paths.runtime_dir.join("windows-x86_64/php/php-cgi.exe"),
+            paths.runtime_dir.join("macos-arm64/php/php-fpm"),
             paths.runtime_dir.join("macos-arm64/php/php-cgi"),
+            paths.runtime_dir.join("macos-x86_64/php/php-fpm"),
             paths.runtime_dir.join("macos-x86_64/php/php-cgi"),
+            paths.runtime_dir.join("php/php-fpm"),
             paths.runtime_dir.join("php/php-cgi"),
             paths.runtime_dir.join("php/php-cgi.exe"),
         ];
@@ -45,24 +49,22 @@ impl PhpService {
 
         if let Ok(entries) = std::fs::read_dir(&paths.runtime_dir) {
             for entry in entries.flatten() {
-                let bin = entry.path().join("php/php-cgi");
-                if bin.exists() {
-                    return Ok(bin);
-                }
-                let w_bin = entry.path().join("php/php-cgi.exe");
-                if w_bin.exists() {
-                    return Ok(w_bin);
+                for sub in &["php/php-fpm", "php/php-cgi", "php/php-cgi.exe"] {
+                    let bin = entry.path().join(sub);
+                    if bin.exists() {
+                        return Ok(bin);
+                    }
                 }
             }
         }
 
-        for name in &["php-cgi", "php-cgi.exe"] {
+        for name in &["php-fpm", "php-cgi", "php-cgi.exe"] {
             if let Ok(path) = which::which(name) {
                 return Ok(path);
             }
         }
 
-        bail!("PHP-CGI binary not found in runtime directory or system PATH")
+        bail!("PHP binary (php-fpm or php-cgi) not found in runtime directory or system PATH")
     }
 
     pub fn start(&mut self, paths: &EnvPaths) -> Result<()> {
@@ -73,14 +75,37 @@ impl PhpService {
         let bin = Self::find_binary(paths)?;
         let php_ini = paths.generate_php_ini()?;
 
+        let is_fpm = bin
+            .file_name()
+            .map(|n| n.to_string_lossy().contains("fpm"))
+            .unwrap_or(false);
+
         let mut cmd = Command::new(&bin);
-        cmd.arg("-b")
-            .arg(format!("127.0.0.1:{}", self.port))
-            .arg("-c")
-            .arg(php_ini.to_string_lossy().to_string())
-            .env("PHP_FCGI_CHILDREN", "4")
-            .env("PHP_FCGI_MAX_REQUESTS", "1000")
-            .env("PHP_INI_SCAN_DIR", "")
+
+        if is_fpm {
+            let fpm_conf = paths.tmp_dir.join("php-fpm.conf");
+            let fpm_content = format!(
+                "[global]\nerror_log = \"{}\"\ndaemonize = no\n\n[www]\nlisten = 127.0.0.1:{}\npm = static\npm.max_children = 4\npm.max_requests = 1000\ncatch_workers_output = yes\nphp_admin_value[error_log] = \"{}\"\nphp_admin_flag[log_errors] = on\n",
+                paths.logs_dir.join("php_fpm_error.log").to_string_lossy(),
+                self.port,
+                paths.logs_dir.join("php_errors.log").to_string_lossy(),
+            );
+            std::fs::write(&fpm_conf, fpm_content)?;
+            cmd.arg("-F")
+                .arg("-y")
+                .arg(fpm_conf.to_string_lossy().to_string())
+                .arg("-c")
+                .arg(php_ini.to_string_lossy().to_string());
+        } else {
+            cmd.arg("-b")
+                .arg(format!("127.0.0.1:{}", self.port))
+                .arg("-c")
+                .arg(php_ini.to_string_lossy().to_string())
+                .env("PHP_FCGI_CHILDREN", "4")
+                .env("PHP_FCGI_MAX_REQUESTS", "1000");
+        }
+
+        cmd.env("PHP_INI_SCAN_DIR", "")
             .stdout(Stdio::null())
             .stderr(Stdio::null());
 
@@ -92,7 +117,7 @@ impl PhpService {
 
         let child = cmd
             .spawn()
-            .with_context(|| format!("Failed to spawn PHP-CGI process {:?}", bin))?;
+            .with_context(|| format!("Failed to spawn PHP process {:?}", bin))?;
 
         let _ = std::fs::write(paths.tmp_dir.join("php.pid"), child.id().to_string());
 

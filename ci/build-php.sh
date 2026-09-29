@@ -76,6 +76,10 @@ case "${TARGET}" in
             cp "buildroot/bin/php-cgi" "${OUTPUT_DIR}/php-cgi"
             chmod +x "${OUTPUT_DIR}/php-cgi"
         fi
+        if [ -f "buildroot/bin/php-fpm" ]; then
+            cp "buildroot/bin/php-fpm" "${OUTPUT_DIR}/php-fpm"
+            chmod +x "${OUTPUT_DIR}/php-fpm"
+        fi
         if [ -f "buildroot/bin/php" ]; then
             cp "buildroot/bin/php" "${OUTPUT_DIR}/php"
             chmod +x "${OUTPUT_DIR}/php"
