@@ -198,6 +198,25 @@ mod tests {
             );
         }
 
+        // Query /install/index.php?step=system to verify System compatibility step succeeds
+        if let Ok(mut stream) = std::net::TcpStream::connect("127.0.0.1:8080") {
+            use std::io::{Read, Write};
+            let _ = stream.write_all(
+                b"GET /install/index.php?step=system HTTP/1.1\r\nHost: 127.0.0.1:8080\r\nConnection: close\r\n\r\n",
+            );
+            let mut response = String::new();
+            let _ = stream.read_to_string(&mut response);
+            println!(
+                "System step preview:\n{}",
+                response.lines().take(15).collect::<Vec<_>>().join("\n")
+            );
+            assert!(
+                !response.contains("500 Internal Server Error"),
+                "System compatibility step must not return 500 error! Response snippet: {}",
+                &response[..response.len().min(500)]
+            );
+        }
+
         manager.stop_all().expect("Failed to stop services");
     }
 }
