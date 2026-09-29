@@ -36,8 +36,8 @@ jobs:
           name: launcher-bin-${{ matrix.target }}
           path: target/release/${{ matrix.bin }}
 
-  build-binaries:
-    name: Build & Bundle (${{ matrix.target }})
+  build-runtime:
+    name: Build Runtime (${{ matrix.target }})
     strategy:
       fail-fast: false
       matrix:
@@ -81,12 +81,39 @@ jobs:
           # shared runners hit the unauthenticated rate limit (403).
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # 4. Fetch prebuilt Launcher Binary (built in parallel job)
+      # 4. Upload runtime for the bundle job
+      - uses: actions/upload-artifact@v4
+        with:
+          name: runtime-${{ matrix.target }}
+          path: build/runtime/${{ matrix.target }}
+
+  # Packing runs per target on its native runner (after both inputs are
+  # ready) so the smoke test can still execute native binaries.
+  bundle:
+    name: Bundle (${{ matrix.target }})
+    needs: [build-launcher, build-runtime]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: windows-x86_64, os: windows-2025,   ext: zip,    bin: prestashop-launcher.exe }
+          - { target: macos-arm64,    os: macos-15,       ext: tar.xz, bin: prestashop-launcher }
+          - { target: macos-x86_64,   os: macos-15-intel, ext: tar.xz, bin: prestashop-launcher }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
       - name: Download Launcher Binary
         uses: actions/download-artifact@v4
         with:
           name: launcher-bin-${{ matrix.target }}
           path: build/launcher-bin
+
+      - name: Download Runtime Binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: runtime-${{ matrix.target }}
+          path: build/runtime/${{ matrix.target }}
 
       # 5. Rakit Paket & PrestaShop Core
       - name: Package Distribution
@@ -107,7 +134,7 @@ jobs:
           path: dist/*.${{ matrix.ext }}
 
   publish-release:
-    needs: [build-launcher, build-binaries]
+    needs: [build-launcher, build-runtime, bundle]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
