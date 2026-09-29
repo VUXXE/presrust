@@ -59,63 +59,40 @@ export component MainWindow inherits Window {
         spacing: 12px;
 
         // ==========================================
-        // 1. TOP HEADER (Icon + Title + Window Deco)
+        // 1. TOP HEADER (Mascot Icon + Window Title)
+        // No duplicate minimize/close buttons (managed by OS window manager)
         // ==========================================
         HorizontalLayout {
-            alignment: space-between;
-            height: 28px;
+            alignment: start;
+            height: 32px;
+            spacing: 10px;
 
-            HorizontalLayout {
-                spacing: 10px;
-                alignment: start;
+            // Mascot Icon (Preston puffin)
+            Rectangle {
+                width: 30px;
+                height: 30px;
+                border-radius: 15px;
+                background: #ffffff;
+                border-width: 1px;
+                border-color: #e2e8f0;
+                clip: true;
 
-                // Mascot Icon (Preston puffin)
-                Rectangle {
-                    width: 28px;
-                    height: 28px;
-                    border-radius: 14px;
-                    background: #ffffff;
-                    border-width: 1px;
-                    border-color: #e2e8f0;
-                    clip: true;
-
-                    Image {
-                        source: @image-url("preston.png");
-                        width: 24px;
-                        height: 24px;
-                        x: 2px;
-                        y: 2px;
-                    }
-                }
-
-                // Window Title
-                Text {
-                    text: root.show-log-drawer ? "PrestaShop Portable — Log Monitor" : "PrestaShop Portable";
-                    font-size: 15px;
-                    font-weight: 700;
-                    color: #0f172a;
-                    vertical-alignment: center;
+                Image {
+                    source: @image-url("preston.png");
+                    width: 26px;
+                    height: 26px;
+                    x: 2px;
+                    y: 2px;
                 }
             }
 
-            // Subtle Window Controls Decoration
-            HorizontalLayout {
-                spacing: 14px;
-                alignment: end;
-                Text {
-                    text: "—";
-                    font-size: 13px;
-                    font-weight: 600;
-                    color: #94a3b8;
-                    vertical-alignment: center;
-                }
-                Text {
-                    text: "✕";
-                    font-size: 13px;
-                    font-weight: 600;
-                    color: #94a3b8;
-                    vertical-alignment: center;
-                }
+            // Window Title
+            Text {
+                text: root.show-log-drawer ? "PrestaShop Portable — Log Monitor" : "PrestaShop Portable";
+                font-size: 16px;
+                font-weight: 700;
+                color: #0f172a;
+                vertical-alignment: center;
             }
         }
 
@@ -129,17 +106,27 @@ export component MainWindow inherits Window {
             border-radius: 10px;
             border-width: 1px;
             border-color: #cbd5e1;
-            height: 320px;
+            height: 310px;
 
             VerticalLayout {
                 padding: 20px;
                 spacing: 14px;
 
-                Text {
-                    text: "⚙  Pengaturan Port Jaringan";
-                    font-size: 14px;
-                    font-weight: 700;
-                    color: #0f172a;
+                HorizontalLayout {
+                    spacing: 8px;
+                    Image {
+                        source: @image-url("icons/gear-gray.svg");
+                        width: 16px;
+                        height: 16px;
+                        vertical-alignment: center;
+                    }
+                    Text {
+                        text: "Pengaturan Port Jaringan";
+                        font-size: 14px;
+                        font-weight: 700;
+                        color: #0f172a;
+                        vertical-alignment: center;
+                    }
                 }
 
                 HorizontalLayout {
@@ -219,19 +206,28 @@ export component MainWindow inherits Window {
                     if root.is-running: Rectangle {
                         background: #f87171;
                         border-radius: 5px;
-                        width: 120px;
+                        width: 125px;
                         height: 28px;
                         TouchArea {
                             enabled: !root.is-busy;
                             clicked => { root.stop-services(); }
                         }
-                        Text {
-                            text: "■ Hentikan Layanan";
-                            font-size: 11px;
-                            font-weight: 600;
-                            color: #ffffff;
-                            horizontal-alignment: center;
-                            vertical-alignment: center;
+                        HorizontalLayout {
+                            alignment: center;
+                            spacing: 6px;
+                            Image {
+                                source: @image-url("icons/stop-white.svg");
+                                width: 10px;
+                                height: 10px;
+                                vertical-alignment: center;
+                            }
+                            Text {
+                                text: "Hentikan Layanan";
+                                font-size: 11px;
+                                font-weight: 600;
+                                color: #ffffff;
+                                vertical-alignment: center;
+                            }
                         }
                     }
                     Rectangle {
@@ -239,19 +235,28 @@ export component MainWindow inherits Window {
                         border-radius: 5px;
                         border-width: 1px;
                         border-color: #cbd5e1;
-                        width: 90px;
+                        width: 96px;
                         height: 28px;
                         TouchArea {
                             enabled: root.is-running;
                             clicked => { root.open-shop(); }
                         }
-                        Text {
-                            text: "🏪 Buka Toko";
-                            font-size: 11px;
-                            font-weight: 600;
-                            color: root.is-running ? #2563eb : #94a3b8;
-                            horizontal-alignment: center;
-                            vertical-alignment: center;
+                        HorizontalLayout {
+                            alignment: center;
+                            spacing: 6px;
+                            Image {
+                                source: root.is-running ? @image-url("icons/store-blue.svg") : @image-url("icons/store-gray.svg");
+                                width: 13px;
+                                height: 13px;
+                                vertical-alignment: center;
+                            }
+                            Text {
+                                text: "Buka Toko";
+                                font-size: 11px;
+                                font-weight: 600;
+                                color: root.is-running ? #2563eb : #94a3b8;
+                                vertical-alignment: center;
+                            }
                         }
                     }
                     Rectangle {
@@ -259,25 +264,34 @@ export component MainWindow inherits Window {
                         border-radius: 5px;
                         border-width: 1px;
                         border-color: #cbd5e1;
-                        width: 70px;
+                        width: 76px;
                         height: 28px;
                         TouchArea {
                             enabled: root.is-running && !root.is-setup-mode;
                             clicked => { root.open-admin(); }
                         }
-                        Text {
-                            text: "👤 Admin";
-                            font-size: 11px;
-                            font-weight: 600;
-                            color: (root.is-running && !root.is-setup-mode) ? #2563eb : #94a3b8;
-                            horizontal-alignment: center;
-                            vertical-alignment: center;
+                        HorizontalLayout {
+                            alignment: center;
+                            spacing: 6px;
+                            Image {
+                                source: (root.is-running && !root.is-setup-mode) ? @image-url("icons/user-blue.svg") : @image-url("icons/user-gray.svg");
+                                width: 13px;
+                                height: 13px;
+                                vertical-alignment: center;
+                            }
+                            Text {
+                                text: "Admin";
+                                font-size: 11px;
+                                font-weight: 600;
+                                color: (root.is-running && !root.is-setup-mode) ? #2563eb : #94a3b8;
+                                vertical-alignment: center;
+                            }
                         }
                     }
                 }
             }
 
-            // Filter Radio Pill Bar
+            // Vector Radio Filter Bar (No Emojis!)
             HorizontalLayout {
                 spacing: 12px;
                 height: 24px;
@@ -289,40 +303,108 @@ export component MainWindow inherits Window {
                 }
 
                 HorizontalLayout {
-                    spacing: 14px;
+                    spacing: 16px;
+                    // Filter: Semua
                     Rectangle {
                         background: transparent;
                         TouchArea { clicked => { root.toggle-log-filter("ALL"); } }
                         HorizontalLayout {
-                            spacing: 4px;
-                            Text { text: root.log-filter == "ALL" ? "🔵" : "⚪"; font-size: 10px; vertical-alignment: center; }
+                            spacing: 6px;
+                            Rectangle {
+                                width: 14px;
+                                height: 14px;
+                                border-radius: 7px;
+                                border-width: 1.5px;
+                                border-color: root.log-filter == "ALL" ? #2563eb : #94a3b8;
+                                background: #ffffff;
+                                y: 5px;
+                                if root.log-filter == "ALL": Rectangle {
+                                    width: 6px;
+                                    height: 6px;
+                                    border-radius: 3px;
+                                    background: #2563eb;
+                                    x: 2.5px;
+                                    y: 2.5px;
+                                }
+                            }
                             Text { text: "Semua"; font-size: 12px; color: root.log-filter == "ALL" ? #2563eb : #475569; font-weight: root.log-filter == "ALL" ? 600 : 400; vertical-alignment: center; }
                         }
                     }
+                    // Filter: Nginx
                     Rectangle {
                         background: transparent;
                         TouchArea { clicked => { root.toggle-log-filter("NGINX"); } }
                         HorizontalLayout {
-                            spacing: 4px;
-                            Text { text: root.log-filter == "NGINX" ? "🔵" : "⚪"; font-size: 10px; vertical-alignment: center; }
+                            spacing: 6px;
+                            Rectangle {
+                                width: 14px;
+                                height: 14px;
+                                border-radius: 7px;
+                                border-width: 1.5px;
+                                border-color: root.log-filter == "NGINX" ? #2563eb : #94a3b8;
+                                background: #ffffff;
+                                y: 5px;
+                                if root.log-filter == "NGINX": Rectangle {
+                                    width: 6px;
+                                    height: 6px;
+                                    border-radius: 3px;
+                                    background: #2563eb;
+                                    x: 2.5px;
+                                    y: 2.5px;
+                                }
+                            }
                             Text { text: "Nginx"; font-size: 12px; color: root.log-filter == "NGINX" ? #2563eb : #475569; font-weight: root.log-filter == "NGINX" ? 600 : 400; vertical-alignment: center; }
                         }
                     }
+                    // Filter: PHP
                     Rectangle {
                         background: transparent;
                         TouchArea { clicked => { root.toggle-log-filter("PHP"); } }
                         HorizontalLayout {
-                            spacing: 4px;
-                            Text { text: root.log-filter == "PHP" ? "🔵" : "⚪"; font-size: 10px; vertical-alignment: center; }
+                            spacing: 6px;
+                            Rectangle {
+                                width: 14px;
+                                height: 14px;
+                                border-radius: 7px;
+                                border-width: 1.5px;
+                                border-color: root.log-filter == "PHP" ? #2563eb : #94a3b8;
+                                background: #ffffff;
+                                y: 5px;
+                                if root.log-filter == "PHP": Rectangle {
+                                    width: 6px;
+                                    height: 6px;
+                                    border-radius: 3px;
+                                    background: #2563eb;
+                                    x: 2.5px;
+                                    y: 2.5px;
+                                }
+                            }
                             Text { text: "PHP"; font-size: 12px; color: root.log-filter == "PHP" ? #2563eb : #475569; font-weight: root.log-filter == "PHP" ? 600 : 400; vertical-alignment: center; }
                         }
                     }
+                    // Filter: DB
                     Rectangle {
                         background: transparent;
                         TouchArea { clicked => { root.toggle-log-filter("DB"); } }
                         HorizontalLayout {
-                            spacing: 4px;
-                            Text { text: root.log-filter == "DB" ? "🔵" : "⚪"; font-size: 10px; vertical-alignment: center; }
+                            spacing: 6px;
+                            Rectangle {
+                                width: 14px;
+                                height: 14px;
+                                border-radius: 7px;
+                                border-width: 1.5px;
+                                border-color: root.log-filter == "DB" ? #2563eb : #94a3b8;
+                                background: #ffffff;
+                                y: 5px;
+                                if root.log-filter == "DB": Rectangle {
+                                    width: 6px;
+                                    height: 6px;
+                                    border-radius: 3px;
+                                    background: #2563eb;
+                                    x: 2.5px;
+                                    y: 2.5px;
+                                }
+                            }
                             Text { text: "DB"; font-size: 12px; color: root.log-filter == "DB" ? #2563eb : #475569; font-weight: root.log-filter == "DB" ? 600 : 400; vertical-alignment: center; }
                         }
                     }
@@ -371,13 +453,18 @@ export component MainWindow inherits Window {
                         border-radius: 5px;
                         border-width: 1px;
                         border-color: #cbd5e1;
-                        width: 130px;
+                        width: 136px;
                         height: 26px;
                         TouchArea { clicked => { root.clear-logs(); } }
                         HorizontalLayout {
                             alignment: center;
-                            spacing: 4px;
-                            Text { text: "🗑"; font-size: 11px; vertical-alignment: center; }
+                            spacing: 6px;
+                            Image {
+                                source: @image-url("icons/trash-gray.svg");
+                                width: 12px;
+                                height: 12px;
+                                vertical-alignment: center;
+                            }
                             Text { text: "Bersihkan Tampilan"; font-size: 11px; color: #475569; font-weight: 500; vertical-alignment: center; }
                         }
                     }
@@ -392,8 +479,13 @@ export component MainWindow inherits Window {
                         TouchArea { clicked => { root.copy-logs(); } }
                         HorizontalLayout {
                             alignment: center;
-                            spacing: 4px;
-                            Text { text: "📋"; font-size: 11px; vertical-alignment: center; }
+                            spacing: 6px;
+                            Image {
+                                source: @image-url("icons/copy-gray.svg");
+                                width: 12px;
+                                height: 12px;
+                                vertical-alignment: center;
+                            }
                             Text { text: root.copy-log-text; font-size: 11px; color: #475569; font-weight: 500; vertical-alignment: center; }
                         }
                     }
@@ -501,8 +593,13 @@ export component MainWindow inherits Window {
                     HorizontalLayout {
                         alignment: space-between;
                         HorizontalLayout {
-                            spacing: 6px;
-                            Text { text: "🗄"; font-size: 13px; vertical-alignment: center; }
+                            spacing: 8px;
+                            Image {
+                                source: @image-url("icons/database-blue.svg");
+                                width: 16px;
+                                height: 16px;
+                                vertical-alignment: center;
+                            }
                             Text {
                                 text: "Kredensial Database untuk Setup";
                                 font-size: 12px;
@@ -518,13 +615,18 @@ export component MainWindow inherits Window {
                             border-radius: 4px;
                             border-width: 1px;
                             border-color: #bfdbfe;
-                            width: 82px;
-                            height: 22px;
+                            width: 86px;
+                            height: 24px;
                             TouchArea { clicked => { root.copy-db-info(); } }
                             HorizontalLayout {
                                 alignment: center;
-                                spacing: 4px;
-                                Text { text: "📋"; font-size: 10px; vertical-alignment: center; }
+                                spacing: 5px;
+                                Image {
+                                    source: @image-url("icons/copy-blue.svg");
+                                    width: 12px;
+                                    height: 12px;
+                                    vertical-alignment: center;
+                                }
                                 Text {
                                     text: root.db-copy-text;
                                     font-size: 11px;
@@ -591,10 +693,10 @@ export component MainWindow inherits Window {
                 HorizontalLayout {
                     alignment: center;
                     spacing: 8px;
-                    Text {
-                        text: root.is-running ? "■" : "▶";
-                        font-size: 13px;
-                        color: #ffffff;
+                    Image {
+                        source: root.is-running ? @image-url("icons/stop-white.svg") : @image-url("icons/play-white.svg");
+                        width: 12px;
+                        height: 12px;
                         vertical-alignment: center;
                     }
                     Text {
@@ -627,9 +729,10 @@ export component MainWindow inherits Window {
                     HorizontalLayout {
                         alignment: center;
                         spacing: 8px;
-                        Text {
-                            text: !root.is-running ? "🏪" : (root.is-setup-mode ? "🌐" : "🏪");
-                            font-size: 13px;
+                        Image {
+                            source: !root.is-running ? @image-url("icons/store-gray.svg") : (root.is-setup-mode ? @image-url("icons/globe-white.svg") : @image-url("icons/store-blue.svg"));
+                            width: 16px;
+                            height: 16px;
                             vertical-alignment: center;
                         }
                         Text {
@@ -657,9 +760,10 @@ export component MainWindow inherits Window {
                     HorizontalLayout {
                         alignment: center;
                         spacing: 8px;
-                        Text {
-                            text: (!root.is-running || root.is-setup-mode) ? "🔒" : "👤";
-                            font-size: 13px;
+                        Image {
+                            source: (!root.is-running) ? @image-url("icons/user-gray.svg") : (root.is-setup-mode ? @image-url("icons/lock-gray.svg") : @image-url("icons/user-blue.svg"));
+                            width: 16px;
+                            height: 16px;
                             vertical-alignment: center;
                         }
                         Text {
@@ -677,7 +781,21 @@ export component MainWindow inherits Window {
             if root.is-running && root.is-setup-mode: HorizontalLayout {
                 spacing: 6px;
                 alignment: start;
-                Text { text: "ⓘ"; font-size: 12px; color: #3b82f6; vertical-alignment: center; }
+                Rectangle {
+                    width: 14px;
+                    height: 14px;
+                    border-radius: 7px;
+                    background: #3b82f6;
+                    y: 2px;
+                    Text {
+                        text: "i";
+                        font-size: 10px;
+                        font-weight: 700;
+                        color: #ffffff;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
                 Text {
                     text: "Selesaikan wizard setup untuk login admin";
                     font-size: 11px;
@@ -702,7 +820,12 @@ export component MainWindow inherits Window {
                 }
                 HorizontalLayout {
                     spacing: 6px;
-                    Text { text: "⚙"; font-size: 13px; color: #64748b; vertical-alignment: center; }
+                    Image {
+                        source: @image-url("icons/gear-gray.svg");
+                        width: 14px;
+                        height: 14px;
+                        vertical-alignment: center;
+                    }
                     Text {
                         text: root.show-settings ? "Tutup Pengaturan" : "Pengaturan";
                         font-size: 12px;
@@ -719,7 +842,12 @@ export component MainWindow inherits Window {
                 TouchArea { clicked => { root.open-logs-folder(); } }
                 HorizontalLayout {
                     spacing: 6px;
-                    Text { text: "📁"; font-size: 12px; color: #475569; vertical-alignment: center; }
+                    Image {
+                        source: @image-url("icons/folder-gray.svg");
+                        width: 14px;
+                        height: 14px;
+                        vertical-alignment: center;
+                    }
                     Text {
                         text: "Buka Folder Logs";
                         font-size: 12px;
