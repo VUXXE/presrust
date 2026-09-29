@@ -73,19 +73,19 @@ impl ProcessManager {
         // Check port conflicts before starting
         if !self.mariadb.is_running() && !Self::is_port_available(self.mariadb.port) {
             bail!(
-                "Port MariaDB ({}) sudah digunakan oleh aplikasi lain",
+                "MariaDB port ({}) is already in use by another application",
                 self.mariadb.port
             );
         }
         if !self.php.is_running() && !Self::is_port_available(self.php.port) {
             bail!(
-                "Port PHP ({}) sudah digunakan oleh aplikasi lain",
+                "PHP port ({}) is already in use by another application",
                 self.php.port
             );
         }
         if !self.nginx.is_running() && !Self::is_port_available(self.nginx.port) {
             bail!(
-                "Port Web ({}) sudah digunakan oleh aplikasi lain",
+                "Web port ({}) is already in use by another application",
                 self.nginx.port
             );
         }
