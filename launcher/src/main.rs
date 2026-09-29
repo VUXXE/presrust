@@ -1,3 +1,5 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 mod config;
 mod monitor;
 mod process;
@@ -54,7 +56,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    // Callback: Start Services
+    // Callback: Start Services (Asynchronous in background thread)
     {
         let pm = pm.clone();
         let paths = paths.clone();
@@ -66,29 +68,43 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             };
             ui.set_is_busy(true);
 
-            let mut manager = pm.lock().unwrap();
-            match manager.start_all(&paths) {
-                Ok(_) => {
-                    ui.set_is_running(true);
-                    ui.set_status_text(SharedString::from("Berjalan"));
-                    let (is_setup, admin) = paths.detect_prestashop_state();
-                    ui.set_is_setup_mode(is_setup);
-                    if let Some(admin_name) = admin {
-                        ui.set_admin_folder(SharedString::from(admin_name));
+            let ui_weak = ui_handle.clone();
+            let pm = pm.clone();
+            let paths = paths.clone();
+
+            std::thread::spawn(move || {
+                let start_result = {
+                    let mut manager = pm.lock().unwrap();
+                    manager.start_all(&paths)
+                };
+                let (is_setup, admin) = paths.detect_prestashop_state();
+
+                let _ = slint::invoke_from_event_loop(move || {
+                    if let Some(ui) = ui_weak.upgrade() {
+                        ui.set_is_busy(false);
+                        match start_result {
+                            Ok(_) => {
+                                ui.set_is_running(true);
+                                ui.set_status_text(SharedString::from("Berjalan"));
+                                ui.set_is_setup_mode(is_setup);
+                                if let Some(admin_name) = admin {
+                                    ui.set_admin_folder(SharedString::from(admin_name));
+                                }
+                            }
+                            Err(err) => {
+                                let err_msg = format!("Gagal: {}", err);
+                                eprintln!("{}", err_msg);
+                                ui.set_status_text(SharedString::from(err_msg));
+                                ui.set_is_running(false);
+                            }
+                        }
                     }
-                }
-                Err(err) => {
-                    let err_msg = format!("Gagal: {}", err);
-                    eprintln!("{}", err_msg);
-                    ui.set_status_text(SharedString::from(err_msg));
-                    ui.set_is_running(false);
-                }
-            }
-            ui.set_is_busy(false);
+                });
+            });
         });
     }
 
-    // Callback: Stop Services
+    // Callback: Stop Services (Asynchronous in background thread)
     {
         let pm = pm.clone();
         let ui_handle = main_window.as_weak();
@@ -99,11 +115,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             };
             ui.set_is_busy(true);
 
-            let mut manager = pm.lock().unwrap();
-            let _ = manager.stop_all();
-            ui.set_is_running(false);
-            ui.set_status_text(SharedString::from("Berhenti"));
-            ui.set_is_busy(false);
+            let ui_weak = ui_handle.clone();
+            let pm = pm.clone();
+
+            std::thread::spawn(move || {
+                {
+                    let mut manager = pm.lock().unwrap();
+                    let _ = manager.stop_all();
+                }
+
+                let _ = slint::invoke_from_event_loop(move || {
+                    if let Some(ui) = ui_weak.upgrade() {
+                        ui.set_is_busy(false);
+                        ui.set_is_running(false);
+                        ui.set_status_text(SharedString::from("Berhenti"));
+                    }
+                });
+            });
         });
     }
 
@@ -152,6 +180,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let _ = clipboard.set_text(text);
                 if let Some(ui) = ui_handle.upgrade() {
                     ui.set_db_copy_text(SharedString::from("Tersalin!"));
+                    let ui_weak = ui_handle.clone();
+                    Timer::single_shot(Duration::from_secs(2), move || {
+                        if let Some(ui) = ui_weak.upgrade() {
+                            ui.set_db_copy_text(SharedString::from("Salin Info"));
+                        }
+                    });
                 }
             }
         });
@@ -177,6 +211,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let _ = clipboard.set_text(all_logs);
                 if let Some(ui) = ui_handle.upgrade() {
                     ui.set_copy_log_text(SharedString::from("Tersalin!"));
+                    let ui_weak = ui_handle.clone();
+                    Timer::single_shot(Duration::from_secs(2), move || {
+                        if let Some(ui) = ui_weak.upgrade() {
+                            ui.set_copy_log_text(SharedString::from("Salin Log"));
+                        }
+                    });
                 }
             }
         });

@@ -34,15 +34,15 @@ elif command -v php >/dev/null 2>&1; then
     echo "--> Creating php-cgi wrapper around system php..."
     cat << 'EOF' > "${RUNTIME_DIR}/php/php-cgi"
 #!/usr/bin/env bash
-# Wrapper around php built-in server or fastcgi if available
 exec php -S 127.0.0.1:9000 "$@"
 EOF
     chmod +x "${RUNTIME_DIR}/php/php-cgi"
 else
     echo "--> Creating mock php-cgi stub..."
-    cat << 'EOF' > "${RUNTIME_DIR}/php/php-cgi"
+    cat << EOF > "${RUNTIME_DIR}/php/php-cgi"
 #!/usr/bin/env bash
-echo "[$(date '+%H:%M:%S')] [PHP-CGI] Mock PHP-CGI service started on 127.0.0.1:9000"
+LOG_FILE="${ROOT_DIR}/logs/php_errors.log"
+echo "[\$(date '+%H:%M:%S')] [PHP-CGI] Mock PHP-CGI service started on 127.0.0.1:9000" >> "\${LOG_FILE}"
 while true; do sleep 1; done
 EOF
     chmod +x "${RUNTIME_DIR}/php/php-cgi"
@@ -54,9 +54,10 @@ if command -v nginx >/dev/null 2>&1; then
     ln -sf "$(command -v nginx)" "${RUNTIME_DIR}/nginx/sbin/nginx"
 else
     echo "--> Creating mock nginx stub..."
-    cat << 'EOF' > "${RUNTIME_DIR}/nginx/sbin/nginx"
+    cat << EOF > "${RUNTIME_DIR}/nginx/sbin/nginx"
 #!/usr/bin/env bash
-echo "[$(date '+%H:%M:%S')] [Nginx] Mock Nginx worker started (port 8080)"
+LOG_FILE="${ROOT_DIR}/logs/nginx_access.log"
+echo "[\$(date '+%H:%M:%S')] [Nginx] Mock Nginx worker started (port 8080)" >> "\${LOG_FILE}"
 while true; do sleep 1; done
 EOF
     chmod +x "${RUNTIME_DIR}/nginx/sbin/nginx"
@@ -71,13 +72,33 @@ elif command -v mysqld >/dev/null 2>&1; then
     ln -sf "$(command -v mysqld)" "${RUNTIME_DIR}/mariadb/bin/mariadbd"
 else
     echo "--> Creating mock mariadbd stub..."
-    cat << 'EOF' > "${RUNTIME_DIR}/mariadb/bin/mariadbd"
+    cat << EOF > "${RUNTIME_DIR}/mariadb/bin/mariadbd"
 #!/usr/bin/env bash
-echo "[$(date '+%H:%M:%S')] [MariaDB] Server socket created 127.0.0.1:3306"
-echo "[$(date '+%H:%M:%S')] [MariaDB] mysqld ready for connections"
+LOG_FILE="${ROOT_DIR}/logs/mariadb_error.log"
+echo "[\$(date '+%H:%M:%S')] [MariaDB] Server socket created 127.0.0.1:3306" >> "\${LOG_FILE}"
+echo "[\$(date '+%H:%M:%S')] [MariaDB] mysqld ready for connections" >> "\${LOG_FILE}"
 while true; do sleep 1; done
 EOF
     chmod +x "${RUNTIME_DIR}/mariadb/bin/mariadbd"
+fi
+
+# Additional MariaDB helpers
+if command -v mariadb-install-db >/dev/null 2>&1; then
+    ln -sf "$(command -v mariadb-install-db)" "${RUNTIME_DIR}/mariadb/bin/mariadb-install-db"
+elif command -v mysql_install_db >/dev/null 2>&1; then
+    ln -sf "$(command -v mysql_install_db)" "${RUNTIME_DIR}/mariadb/bin/mariadb-install-db"
+fi
+
+if command -v mariadb >/dev/null 2>&1; then
+    ln -sf "$(command -v mariadb)" "${RUNTIME_DIR}/mariadb/bin/mariadb"
+elif command -v mysql >/dev/null 2>&1; then
+    ln -sf "$(command -v mysql)" "${RUNTIME_DIR}/mariadb/bin/mariadb"
+fi
+
+if [ -d "/usr/share/mariadb" ]; then
+    ln -sfn "/usr/share/mariadb" "${RUNTIME_DIR}/mariadb/share/mariadb"
+elif [ -d "/usr/share/mysql" ]; then
+    ln -sfn "/usr/share/mysql" "${RUNTIME_DIR}/mariadb/share/mysql"
 fi
 
 echo "==> Local dev environment ready! You can now test the launcher with 'cargo run' in launcher/."

@@ -22,6 +22,7 @@ tmp/
 
 # Active configuration generated at runtime
 config/php.ini
+config/nginx.conf
 
 # OS & Editor files
 .DS_Store

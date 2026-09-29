@@ -8,7 +8,7 @@ events {
 }
 
 http {
-    include mime.types;
+    include "{{ROOT}}/config/mime.types";
     default_type application/octet-stream;
 
     access_log "{{ROOT}}/logs/nginx_access.log";
@@ -78,7 +78,7 @@ http {
             }
 
             fastcgi_index index.php;
-            include fastcgi.conf;
+            include "{{ROOT}}/config/fastcgi.conf";
             fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
             fastcgi_param PATH_INFO $fastcgi_path_info;
             fastcgi_param HTTP_PROXY "";

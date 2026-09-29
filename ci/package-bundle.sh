@@ -46,6 +46,7 @@ fi
 # 2. Config templates
 mkdir -p "${STAGE_DIR}/config"
 cp -r "${ROOT_DIR}/config"/* "${STAGE_DIR}/config/"
+rm -f "${STAGE_DIR}/config/nginx.conf" "${STAGE_DIR}/config/php.ini"
 
 # 3. Runtime Binaries
 mkdir -p "${STAGE_DIR}/runtime/${TARGET}"

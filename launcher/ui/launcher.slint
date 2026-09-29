@@ -315,6 +315,10 @@ export component MainWindow inherits Window {
 
                     HorizontalLayout {
                         spacing: 8px;
+                        CheckBox {
+                            text: "Auto-scroll";
+                            checked <=> root.auto-scroll;
+                        }
                         Button {
                             text: root.copy-log-text;
                             clicked => { root.copy-logs(); }

@@ -92,10 +92,38 @@ impl MariaDbService {
             .arg(format!("--port={}", self.port))
             .arg("--bind-address=127.0.0.1")
             .arg(format!("--log-error={}", error_log.to_string_lossy()))
+            .arg(format!(
+                "--socket={}",
+                paths.tmp_dir.join("mysql.sock").to_string_lossy()
+            ))
+            .arg(format!(
+                "--pid-file={}",
+                paths.tmp_dir.join("mariadb.pid").to_string_lossy()
+            ))
+            .arg(format!("--tmpdir={}", paths.tmp_dir.to_string_lossy()))
             .arg("--default-storage-engine=InnoDB")
             .arg("--skip-networking=0")
             .stdout(Stdio::null())
             .stderr(Stdio::null());
+
+        if let Some(base) = bin.parent().and_then(|p| p.parent()) {
+            if base.join("share").exists() {
+                cmd.arg(format!("--basedir={}", base.to_string_lossy()));
+            }
+        }
+
+        let init_sql = paths.tmp_dir.join("init_prestashop.sql");
+        let _ = std::fs::write(
+            &init_sql,
+            "CREATE DATABASE IF NOT EXISTS `prestashop` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;\n",
+        );
+        cmd.arg(format!("--init-file={}", init_sql.to_string_lossy()));
+
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            cmd.creation_flags(0x08000000);
+        }
 
         let child = cmd
             .spawn()
@@ -141,12 +169,34 @@ impl MariaDbService {
             }
         }
 
+        if install_bin.is_none() {
+            if let Ok(path) = which::which("mariadb-install-db") {
+                install_bin = Some(path);
+            } else if let Ok(path) = which::which("mysql_install_db") {
+                install_bin = Some(path);
+            }
+        }
+
         if let Some(installer) = install_bin {
-            let _ = Command::new(installer)
+            let mut init_cmd = Command::new(&installer);
+            init_cmd
                 .arg(format!("--datadir={}", datadir.to_string_lossy()))
                 .arg("--auth-root-authentication-method=normal")
-                .arg("--skip-test-db")
-                .status();
+                .arg("--skip-test-db");
+
+            if let Some(base) = installer.parent().and_then(|p| p.parent()) {
+                if base.join("share").exists() {
+                    init_cmd.arg(format!("--basedir={}", base.to_string_lossy()));
+                }
+            }
+
+            #[cfg(windows)]
+            {
+                use std::os::windows::process::CommandExt;
+                init_cmd.creation_flags(0x08000000);
+            }
+
+            let _ = init_cmd.status();
         }
         Ok(())
     }
@@ -161,7 +211,9 @@ impl MariaDbService {
             }
             #[cfg(windows)]
             {
-                let _ = child.kill();
+                let _ = Command::new("taskkill")
+                    .args(["/F", "/T", "/PID", &child.id().to_string()])
+                    .status();
             }
 
             // Wait up to 3 seconds for clean shutdown

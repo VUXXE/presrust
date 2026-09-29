@@ -83,6 +83,12 @@ impl PhpService {
             .stdout(Stdio::null())
             .stderr(Stdio::null());
 
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            cmd.creation_flags(0x08000000);
+        }
+
         let child = cmd
             .spawn()
             .with_context(|| format!("Failed to spawn PHP-CGI process {:?}", bin))?;
@@ -101,7 +107,9 @@ impl PhpService {
             }
             #[cfg(windows)]
             {
-                let _ = child.kill();
+                let _ = Command::new("taskkill")
+                    .args(["/F", "/T", "/PID", &child.id().to_string()])
+                    .status();
             }
 
             for _ in 0..20 {

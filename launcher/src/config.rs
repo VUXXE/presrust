@@ -27,30 +27,44 @@ pub struct EnvPaths {
     pub config_dir: PathBuf,
     pub logs_dir: PathBuf,
     pub data_dir: PathBuf,
-    #[allow(dead_code)]
     pub tmp_dir: PathBuf,
 }
 
 impl EnvPaths {
     pub fn resolve() -> Result<Self> {
-        let mut current = std::env::current_dir()?;
-
-        // If running from inside launcher/ or launcher/target/debug, walk up
-        for _ in 0..4 {
-            if current.join("config").exists()
-                || current.join("versions.env").exists()
-                || current.join("prd.md").exists()
-            {
-                break;
+        let mut candidates = Vec::new();
+        if let Ok(exe_path) = std::env::current_exe() {
+            if let Some(parent) = exe_path.parent() {
+                candidates.push(parent.to_path_buf());
             }
-            if let Some(parent) = current.parent() {
-                current = parent.to_path_buf();
-            } else {
+        }
+        if let Ok(cwd) = std::env::current_dir() {
+            candidates.push(cwd);
+        }
+
+        let mut root_dir = None;
+        for start in candidates {
+            let mut curr = start;
+            for _ in 0..5 {
+                if curr.join("config").exists()
+                    || curr.join("versions.env").exists()
+                    || curr.join("prd.md").exists()
+                {
+                    root_dir = Some(curr);
+                    break;
+                }
+                if let Some(parent) = curr.parent() {
+                    curr = parent.to_path_buf();
+                } else {
+                    break;
+                }
+            }
+            if root_dir.is_some() {
                 break;
             }
         }
 
-        let root_dir = current;
+        let root_dir = root_dir.unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
         let mut app_dir = root_dir.join("app");
         if !app_dir.exists() && root_dir.join("prestashop").exists() {
             app_dir = root_dir.join("prestashop");
@@ -88,22 +102,24 @@ impl EnvPaths {
         let install_dir = self.app_dir.join("install");
         let has_install_dir = install_dir.exists() && install_dir.is_dir();
 
-        // Scan for admin directory (admin, admin_*, etc.)
+        // Scan for admin directory (admin, admin_*, admin[0-9]*, etc.)
         let mut found_admin = None;
         if let Ok(entries) = fs::read_dir(&self.app_dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
                 if path.is_dir() {
                     if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                        if (name == "admin"
-                            || name.starts_with("admin_")
-                            || name.starts_with("admin-"))
+                        if name != "admin-api"
+                            && name != "admin-dev"
+                            && name.starts_with("admin")
                             && path.join("index.php").exists()
                         {
-                            found_admin = Some(name.to_string());
-                            // Prefer renamed admin directory if found
-                            if name.starts_with("admin_") {
+                            // Prefer customized/renamed admin directory (e.g. admin_xyz, admin982a1f)
+                            if name != "admin" {
+                                found_admin = Some(name.to_string());
                                 break;
+                            } else if found_admin.is_none() {
+                                found_admin = Some(name.to_string());
                             }
                         }
                     }
@@ -192,5 +208,42 @@ mod tests {
             .generate_nginx_conf(8080, 9000)
             .expect("Should generate nginx.conf");
         assert!(nginx_conf.exists());
+    }
+
+    #[test]
+    fn test_detect_prestashop_state() {
+        let temp_dir = std::env::temp_dir().join(format!("test_ps_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&temp_dir);
+        fs::create_dir_all(&temp_dir).unwrap();
+
+        let mut paths = EnvPaths::resolve().expect("Should resolve env paths");
+        paths.app_dir = temp_dir.clone();
+
+        // 1. Empty app dir -> setup mode, no admin
+        let (is_setup, admin) = paths.detect_prestashop_state();
+        assert!(is_setup);
+        assert_eq!(admin, None);
+
+        // 2. Install folder + default admin -> setup mode
+        fs::create_dir_all(temp_dir.join("install")).unwrap();
+        fs::create_dir_all(temp_dir.join("admin")).unwrap();
+        fs::write(temp_dir.join("admin/index.php"), "<?php").unwrap();
+        let (is_setup, admin) = paths.detect_prestashop_state();
+        assert!(is_setup);
+        assert_eq!(admin, Some("admin".to_string()));
+
+        // 3. Removed install folder + renamed admin982a1f -> ready mode, renamed admin preferred
+        fs::remove_dir_all(temp_dir.join("install")).unwrap();
+        fs::create_dir_all(temp_dir.join("admin982a1f")).unwrap();
+        fs::write(temp_dir.join("admin982a1f/index.php"), "<?php").unwrap();
+        // Also simulate admin-api to ensure it's not chosen
+        fs::create_dir_all(temp_dir.join("admin-api")).unwrap();
+        fs::write(temp_dir.join("admin-api/index.php"), "<?php").unwrap();
+
+        let (is_setup, admin) = paths.detect_prestashop_state();
+        assert!(!is_setup);
+        assert_eq!(admin, Some("admin982a1f".to_string()));
+
+        let _ = fs::remove_dir_all(&temp_dir);
     }
 }

@@ -17,6 +17,14 @@ for dir in app config runtime data tmp logs; do
     fi
 done
 
+# Check essential configuration files
+for cfg in nginx.conf.template php.ini.template mime.types fastcgi.conf; do
+    if [ ! -f "${STAGE_DIR}/config/${cfg}" ]; then
+        echo "FAIL: Required config file missing: ${cfg}" >&2
+        exit 1
+    fi
+done
+
 # Check launcher
 LAUNCHER="PrestaShopLauncher"
 [[ "${TARGET}" == windows* ]] && LAUNCHER="PrestaShopLauncher.exe"
