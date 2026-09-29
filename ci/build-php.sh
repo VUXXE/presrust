@@ -83,6 +83,14 @@ case "${TARGET}" in
         # NOTE: spc 2.x has no --build-cgi SAPI flag. php-fpm speaks
         # FastCGI exactly like php-cgi, and the launcher already prefers
         # php-fpm (see PhpService::find_binary / is_fpm branch).
+        if [[ "${TARGET}" == "linux-x86_64" ]]; then
+            # spc defaults to a musl target on glibc distros, demanding a
+            # musl-cross-make toolchain at /usr/local/musl. Our bundle
+            # already links glibc (nginx is compiled on-runner, MariaDB
+            # ships official glibc binaries), so a musl PHP adds no
+            # portability — build against glibc instead.
+            export SPC_LIBC=glibc
+        fi
         "${SPC_BIN}" build "${REQUIRED_EXTENSIONS}" --build-fpm --build-cli
 
         # spc outputs to buildroot/bin/
