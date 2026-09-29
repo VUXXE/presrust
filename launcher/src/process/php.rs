@@ -80,6 +80,7 @@ impl PhpService {
             .arg(php_ini.to_string_lossy().to_string())
             .env("PHP_FCGI_CHILDREN", "4")
             .env("PHP_FCGI_MAX_REQUESTS", "1000")
+            .env("PHP_INI_SCAN_DIR", "")
             .stdout(Stdio::null())
             .stderr(Stdio::null());
 

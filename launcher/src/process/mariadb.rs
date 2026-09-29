@@ -88,7 +88,9 @@ impl MariaDbService {
         }
 
         let mut cmd = Command::new(&bin);
-        cmd.arg(format!("--datadir={}", datadir.to_string_lossy()))
+        // --no-defaults MUST be the first argument to prevent loading host system /etc/my.cnf.d/*.cnf
+        cmd.arg("--no-defaults")
+            .arg(format!("--datadir={}", datadir.to_string_lossy()))
             .arg(format!("--port={}", self.port))
             .arg("--bind-address=127.0.0.1")
             .arg(format!("--log-error={}", error_log.to_string_lossy()))
@@ -106,9 +108,14 @@ impl MariaDbService {
             .stdout(Stdio::null())
             .stderr(Stdio::null());
 
-        if let Some(base) = bin.parent().and_then(|p| p.parent()) {
-            if base.join("share").exists() {
-                cmd.arg(format!("--basedir={}", base.to_string_lossy()));
+        // Only set --basedir if it's a real bundled MariaDB (not a symlink to /usr or system)
+        if let Ok(real_path) = bin.canonicalize() {
+            if !real_path.starts_with("/usr") {
+                if let Some(base) = real_path.parent().and_then(|p| p.parent()) {
+                    if base.join("share/english").exists() || base.join("share/charsets").exists() {
+                        cmd.arg(format!("--basedir={}", base.to_string_lossy()));
+                    }
+                }
             }
         }
 
@@ -180,13 +187,18 @@ impl MariaDbService {
         if let Some(installer) = install_bin {
             let mut init_cmd = Command::new(&installer);
             init_cmd
+                .arg("--no-defaults")
                 .arg(format!("--datadir={}", datadir.to_string_lossy()))
                 .arg("--auth-root-authentication-method=normal")
                 .arg("--skip-test-db");
 
-            if let Some(base) = installer.parent().and_then(|p| p.parent()) {
-                if base.join("share").exists() {
-                    init_cmd.arg(format!("--basedir={}", base.to_string_lossy()));
+            if let Ok(real_path) = installer.canonicalize() {
+                if !real_path.starts_with("/usr") {
+                    if let Some(base) = real_path.parent().and_then(|p| p.parent()) {
+                        if base.join("share/english").exists() || base.join("share/charsets").exists() {
+                            init_cmd.arg(format!("--basedir={}", base.to_string_lossy()));
+                        }
+                    }
                 }
             }
 
