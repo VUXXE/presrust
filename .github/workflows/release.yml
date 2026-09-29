@@ -45,6 +45,10 @@ jobs:
         if: steps.cache-runtime.outputs.cache-hit != 'true'
         run: ./ci/build-runtime.sh ${{ matrix.target }}
         shell: bash
+        env:
+          # spc resolves sources via api.github.com (e.g. madler/zlib);
+          # shared runners hit the unauthenticated rate limit (403).
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # 4. Compile Rust Launcher
       - name: Build Launcher Binary
