@@ -66,10 +66,24 @@ case "${TARGET}" in
         fi
 
         echo "--> Fetching source dependencies via spc..."
-        "${SPC_BIN}" download --with-php="${PHP_SERIES}" --for-extensions="${REQUIRED_EXTENSIONS}"
+        # NOTE: spc download hits many upstreams; transient 403/56 errors
+        # happen on shared CI runners. Retry before giving up.
+        SPC_ATTEMPT=1
+        until "${SPC_BIN}" download --with-php="${PHP_SERIES}" --for-extensions="${REQUIRED_EXTENSIONS}"; do
+            if [ "${SPC_ATTEMPT}" -ge 3 ]; then
+                echo "Error: spc download failed after 3 attempts" >&2
+                exit 1
+            fi
+            echo "--> spc download failed (attempt ${SPC_ATTEMPT}), retrying in 15s..."
+            SPC_ATTEMPT=$((SPC_ATTEMPT + 1))
+            sleep 15
+        done
 
-        echo "--> Compiling php-cgi and php-cli statically..."
-        "${SPC_BIN}" build "${REQUIRED_EXTENSIONS}" --build-cgi --build-cli
+        echo "--> Compiling php-fpm and php-cli statically..."
+        # NOTE: spc 2.x has no --build-cgi SAPI flag. php-fpm speaks
+        # FastCGI exactly like php-cgi, and the launcher already prefers
+        # php-fpm (see PhpService::find_binary / is_fpm branch).
+        "${SPC_BIN}" build "${REQUIRED_EXTENSIONS}" --build-fpm --build-cli
 
         # spc outputs to buildroot/bin/
         if [ -f "buildroot/bin/php-cgi" ]; then

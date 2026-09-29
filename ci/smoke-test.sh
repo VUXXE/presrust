@@ -44,6 +44,12 @@ fi
 if [[ "$(uname -s)" == "Linux" && "${TARGET}" == "linux-x86_64" ]] || \
    [[ "$(uname -s)" == "Darwin" && "${TARGET}" == "macos"* ]]; then
     
+    PHP_BIN="${STAGE_DIR}/runtime/${TARGET}/php/php-fpm"
+    if [ -f "${PHP_BIN}" ]; then
+        echo "--> Testing PHP binary: ${PHP_BIN} -v"
+        "${PHP_BIN}" -v || true
+    fi
+
     PHP_BIN="${STAGE_DIR}/runtime/${TARGET}/php/php-cgi"
     if [ -f "${PHP_BIN}" ]; then
         echo "--> Testing PHP binary: ${PHP_BIN} -v"

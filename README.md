@@ -90,7 +90,7 @@ Kompilasi multi-platform dan perakitan bundel final ditangani sepenuhnya oleh Gi
 | `windows-x86_64` | `windows-2025` | `.zip` |
 | `linux-x86_64` | `ubuntu-24.04` | `.tar.xz` |
 | `macos-arm64` | `macos-15` (Apple Silicon) | `.tar.xz` |
-| `macos-x86_64` | `macos-13` (Intel) | `.tar.xz` |
+| `macos-x86_64` | `macos-15-intel` (Intel) | `.tar.xz` |
 
 Untuk memicu build rilis otomatis:
 ```bash
