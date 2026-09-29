@@ -90,9 +90,20 @@ impl PhpService {
             cmd.creation_flags(0x08000000);
         }
 
+        #[cfg(target_os = "linux")]
+        unsafe {
+            use std::os::unix::process::CommandExt;
+            cmd.pre_exec(|| {
+                libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGTERM);
+                Ok(())
+            });
+        }
+
         let child = cmd
             .spawn()
             .with_context(|| format!("Failed to spawn PHP-CGI process {:?}", bin))?;
+
+        let _ = std::fs::write(paths.tmp_dir.join("php.pid"), child.id().to_string());
 
         self.child = Some(child);
         Ok(())

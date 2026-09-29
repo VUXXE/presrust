@@ -32,7 +32,44 @@ impl ProcessManager {
         self.mariadb.is_running() || self.php.is_running() || self.nginx.is_running()
     }
 
+    pub fn cleanup_orphaned_processes(paths: &EnvPaths) {
+        let pids = [
+            paths.tmp_dir.join("mariadb.pid"),
+            paths.tmp_dir.join("php.pid"),
+            paths.tmp_dir.join("nginx.pid"),
+        ];
+
+        let mut killed = false;
+        for pid_file in &pids {
+            if let Ok(content) = std::fs::read_to_string(pid_file) {
+                if let Ok(pid) = content.trim().parse::<i32>() {
+                    #[cfg(unix)]
+                    unsafe {
+                        if libc::kill(pid as libc::pid_t, 0) == 0 {
+                            let _ = libc::kill(pid as libc::pid_t, libc::SIGTERM);
+                            killed = true;
+                        }
+                    }
+                    #[cfg(windows)]
+                    {
+                        let _ = std::process::Command::new("taskkill")
+                            .args(["/F", "/T", "/PID", &pid.to_string()])
+                            .status();
+                        killed = true;
+                    }
+                }
+                let _ = std::fs::remove_file(pid_file);
+            }
+        }
+
+        if killed {
+            std::thread::sleep(std::time::Duration::from_millis(500));
+        }
+    }
+
     pub fn start_all(&mut self, paths: &EnvPaths) -> Result<()> {
+        Self::cleanup_orphaned_processes(paths);
+
         // Check port conflicts before starting
         if !self.mariadb.is_running() && !Self::is_port_available(self.mariadb.port) {
             bail!(

@@ -132,6 +132,15 @@ impl MariaDbService {
             cmd.creation_flags(0x08000000);
         }
 
+        #[cfg(target_os = "linux")]
+        unsafe {
+            use std::os::unix::process::CommandExt;
+            cmd.pre_exec(|| {
+                libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGTERM);
+                Ok(())
+            });
+        }
+
         let child = cmd
             .spawn()
             .with_context(|| format!("Failed to spawn MariaDB process {:?}", bin))?;
@@ -195,7 +204,9 @@ impl MariaDbService {
             if let Ok(real_path) = installer.canonicalize() {
                 if !real_path.starts_with("/usr") {
                     if let Some(base) = real_path.parent().and_then(|p| p.parent()) {
-                        if base.join("share/english").exists() || base.join("share/charsets").exists() {
+                        if base.join("share/english").exists()
+                            || base.join("share/charsets").exists()
+                        {
                             init_cmd.arg(format!("--basedir={}", base.to_string_lossy()));
                         }
                     }
