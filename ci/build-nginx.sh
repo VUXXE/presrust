@@ -7,6 +7,11 @@ OUTPUT_DIR="${2:-build/runtime/${TARGET}/nginx}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
+case "${OUTPUT_DIR}" in
+    /*) ;;
+    *) OUTPUT_DIR="${ROOT_DIR}/${OUTPUT_DIR}" ;;
+esac
+
 if [ -f "${ROOT_DIR}/versions.env" ]; then
     # shellcheck disable=SC1091
     source "${ROOT_DIR}/versions.env"
@@ -53,6 +58,7 @@ case "${TARGET}" in
             --with-http_ssl_module \
             --with-http_v2_module \
             --with-http_realip_module \
+            --with-cc-opt="-Wno-error" \
             --without-http_uwsgi_module \
             --without-http_scgi_module \
             --without-mail_pop3_module \

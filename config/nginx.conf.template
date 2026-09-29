@@ -15,8 +15,6 @@ http {
     client_body_temp_path "{{ROOT}}/tmp/nginx_client_body";
     proxy_temp_path "{{ROOT}}/tmp/nginx_proxy";
     fastcgi_temp_path "{{ROOT}}/tmp/nginx_fastcgi";
-    uwsgi_temp_path "{{ROOT}}/tmp/nginx_uwsgi";
-    scgi_temp_path "{{ROOT}}/tmp/nginx_scgi";
 
     sendfile on;
     tcp_nopush on;
