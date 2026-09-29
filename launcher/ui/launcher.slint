@@ -7,16 +7,13 @@ export struct LogItem {
 }
 
 export component MainWindow inherits Window {
-    title: "PrestaShop Portable";
-    min-width: 480px;
-    max-width: 480px;
-    min-height: 380px;
-    max-height: 380px;
-    background: #111216;
+    title: root.show-log-drawer ? "PrestaShop Portable — Log Monitor" : "PrestaShop Portable";
+    min-width: 600px;
+    max-width: 600px;
+    min-height: 420px;
+    max-height: 420px;
+    background: #f8fafc;
     default-font-family: "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif";
-
-    // Tab Index: 0 = Layanan, 1 = Log, 2 = Pengaturan
-    property <int> active-tab: 0;
 
     // Properties bound to Rust state
     in-out property <bool> is-running: false;
@@ -28,18 +25,18 @@ export component MainWindow inherits Window {
     in-out property <string> db-port: "3306";
     in-out property <string> db-user: "root";
     in-out property <string> db-name: "prestashop";
-    in-out property <string> db-copy-text: "Salin";
+    in-out property <string> db-copy-text: "Salin Info";
     in-out property <string> status-text: "Berhenti";
-    in-out property <string> launcher-version: "v0.4";
+    in-out property <string> launcher-version: "v0.4 (Rust)";
 
-    // Log Drawer Properties (retained for Rust bindings)
+    // Log Drawer Properties
     in-out property <bool> show-log-drawer: false;
     in-out property <string> log-filter: "ALL";
     in-out property <bool> auto-scroll: true;
     in-out property <string> log-content: "";
-    in-out property <string> copy-log-text: "Salin";
+    in-out property <string> copy-log-text: "Salin Log";
 
-    // Settings Properties (retained for Rust bindings)
+    // Settings Properties
     in-out property <bool> show-settings: false;
     in-out property <string> cfg-web-port: "8080";
     in-out property <string> cfg-php-port: "9000";
@@ -61,276 +58,175 @@ export component MainWindow inherits Window {
         padding: 16px;
         spacing: 12px;
 
-        // 1. Top Header: Title + Status Pill
+        // ==========================================
+        // 1. TOP HEADER (Icon + Title + Window Deco)
+        // ==========================================
         HorizontalLayout {
             alignment: space-between;
+            height: 28px;
 
             HorizontalLayout {
-                spacing: 8px;
+                spacing: 10px;
+                alignment: start;
+
+                // Mascot Icon (Preston puffin)
+                Rectangle {
+                    width: 28px;
+                    height: 28px;
+                    border-radius: 14px;
+                    background: #ffffff;
+                    border-width: 1px;
+                    border-color: #e2e8f0;
+                    clip: true;
+
+                    Image {
+                        source: @image-url("preston.png");
+                        width: 24px;
+                        height: 24px;
+                        x: 2px;
+                        y: 2px;
+                    }
+                }
+
+                // Window Title
                 Text {
-                    text: "PrestaShop";
-                    font-size: 18px;
+                    text: root.show-log-drawer ? "PrestaShop Portable — Log Monitor" : "PrestaShop Portable";
+                    font-size: 15px;
                     font-weight: 700;
-                    color: #ffffff;
+                    color: #0f172a;
                     vertical-alignment: center;
                 }
-                Rectangle {
-                    background: #232630;
-                    border-radius: 4px;
-                    y: 4px;
-                    height: 18px;
-                    HorizontalLayout {
-                        padding-left: 6px;
-                        padding-right: 6px;
-                        Text {
-                            text: "Portable";
-                            font-size: 10px;
-                            font-weight: 600;
-                            color: #94a3b8;
-                            vertical-alignment: center;
-                            horizontal-alignment: center;
-                        }
-                    }
-                }
             }
 
-            // Status Pill
-            Rectangle {
-                background: root.is-running ? #064e3b : #1e2026;
-                border-radius: 12px;
-                border-width: 1px;
-                border-color: root.is-running ? #059669 : #333642;
-                height: 24px;
+            // Subtle Window Controls Decoration
+            HorizontalLayout {
+                spacing: 14px;
+                alignment: end;
+                Text {
+                    text: "—";
+                    font-size: 13px;
+                    font-weight: 600;
+                    color: #94a3b8;
+                    vertical-alignment: center;
+                }
+                Text {
+                    text: "✕";
+                    font-size: 13px;
+                    font-weight: 600;
+                    color: #94a3b8;
+                    vertical-alignment: center;
+                }
+            }
+        }
+
+        // ==========================================
+        // 2. MAIN VIEWS: STANDARD DASHBOARD vs LOG MONITOR vs SETTINGS
+        // ==========================================
+
+        // A. SETTINGS MODAL / VIEW
+        if root.show-settings: Rectangle {
+            background: #ffffff;
+            border-radius: 10px;
+            border-width: 1px;
+            border-color: #cbd5e1;
+            height: 320px;
+
+            VerticalLayout {
+                padding: 20px;
+                spacing: 14px;
+
+                Text {
+                    text: "⚙  Pengaturan Port Jaringan";
+                    font-size: 14px;
+                    font-weight: 700;
+                    color: #0f172a;
+                }
 
                 HorizontalLayout {
-                    padding-left: 10px;
-                    padding-right: 10px;
-                    spacing: 6px;
-                    alignment: center;
-                    Rectangle {
-                        width: 8px;
-                        height: 8px;
-                        border-radius: 4px;
-                        background: root.is-running ? #10b981 : #94a3b8;
-                        y: 8px;
-                    }
-                    Text {
-                        text: root.is-running ? "Berjalan" : "Berhenti";
-                        font-size: 12px;
-                        font-weight: 600;
-                        color: root.is-running ? #34d399 : #94a3b8;
-                        vertical-alignment: center;
-                    }
-                }
-            }
-        }
-
-        // 2. Navigation Tab Bar (Segmented Control)
-        Rectangle {
-            background: #191b22;
-            border-radius: 7px;
-            height: 32px;
-            border-width: 1px;
-            border-color: #242732;
-
-            HorizontalLayout {
-                padding: 2px;
-                spacing: 2px;
-
-                // Tab 0: Layanan
-                Rectangle {
-                    background: root.active-tab == 0 ? #2563eb : transparent;
-                    border-radius: 5px;
-                    TouchArea {
-                        clicked => { root.active-tab = 0; }
-                    }
-                    Text {
-                        text: "⚡  Layanan";
-                        font-size: 12px;
-                        font-weight: root.active-tab == 0 ? 600 : 500;
-                        color: root.active-tab == 0 ? #ffffff : #94a3b8;
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
-                    }
+                    spacing: 12px;
+                    Text { text: "Port Web (Nginx):"; font-size: 12px; color: #475569; vertical-alignment: center; width: 160px; }
+                    web-port-input := LineEdit { text: root.cfg-web-port; }
                 }
 
-                // Tab 1: Log
-                Rectangle {
-                    background: root.active-tab == 1 ? #2563eb : transparent;
-                    border-radius: 5px;
-                    TouchArea {
-                        clicked => { root.active-tab = 1; }
-                    }
-                    Text {
-                        text: "📜  Log Aktivitas";
-                        font-size: 12px;
-                        font-weight: root.active-tab == 1 ? 600 : 500;
-                        color: root.active-tab == 1 ? #ffffff : #94a3b8;
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
-                    }
+                HorizontalLayout {
+                    spacing: 12px;
+                    Text { text: "Port PHP (FastCGI):"; font-size: 12px; color: #475569; vertical-alignment: center; width: 160px; }
+                    php-port-input := LineEdit { text: root.cfg-php-port; }
                 }
 
-                // Tab 2: Pengaturan
-                Rectangle {
-                    background: root.active-tab == 2 ? #2563eb : transparent;
-                    border-radius: 5px;
-                    TouchArea {
-                        clicked => { root.active-tab = 2; }
-                    }
-                    Text {
-                        text: "⚙  Pengaturan";
-                        font-size: 12px;
-                        font-weight: root.active-tab == 2 ? 600 : 500;
-                        color: root.active-tab == 2 ? #ffffff : #94a3b8;
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
-                    }
+                HorizontalLayout {
+                    spacing: 12px;
+                    Text { text: "Port Database (MariaDB):"; font-size: 12px; color: #475569; vertical-alignment: center; width: 160px; }
+                    db-port-input := LineEdit { text: root.cfg-db-port; }
                 }
-            }
-        }
 
-        // 3. Tab Contents (Strictly bounded height)
-
-        // Tab 0: Layanan View
-        if root.active-tab == 0: VerticalLayout {
-            spacing: 10px;
-
-            // Service URL & Action Card
-            Rectangle {
-                background: #191b22;
-                border-radius: 8px;
-                border-width: 1px;
-                border-color: #272a34;
-                height: 104px;
-
-                VerticalLayout {
-                    padding: 12px;
+                HorizontalLayout {
                     spacing: 10px;
-
-                    if root.is-running: HorizontalLayout {
-                        alignment: space-between;
-                        Text {
-                            text: "Alamat Web:";
-                            font-size: 12px;
-                            color: #94a3b8;
-                            vertical-alignment: center;
-                        }
-                        Text {
-                            text: root.host-url;
-                            font-size: 13px;
-                            font-weight: 600;
-                            color: #38bdf8;
-                            vertical-alignment: center;
-                        }
+                    alignment: end;
+                    Button {
+                        text: "Batal";
+                        clicked => { root.show-settings = false; }
                     }
-
-                    if root.is-running: HorizontalLayout {
-                        spacing: 8px;
-                        height: 36px;
-
-                        Rectangle {
-                            background: #2563eb;
-                            border-radius: 6px;
-                            TouchArea {
-                                clicked => { root.open-shop(); }
-                            }
-                            Text {
-                                text: root.is-setup-mode ? "🚀  Buka Setup Toko" : "🛍️  Buka Toko";
-                                font-size: 12px;
-                                font-weight: 600;
-                                color: #ffffff;
-                                horizontal-alignment: center;
-                                vertical-alignment: center;
-                            }
-                        }
-
-                        if !root.is-setup-mode && root.admin-folder != "": Rectangle {
-                            width: 120px;
-                            background: #4f46e5;
-                            border-radius: 6px;
-                            TouchArea {
-                                clicked => { root.open-admin(); }
-                            }
-                            Text {
-                                text: "🔐  Admin";
-                                font-size: 12px;
-                                font-weight: 600;
-                                color: #ffffff;
-                                horizontal-alignment: center;
-                                vertical-alignment: center;
-                            }
-                        }
-                    }
-
-                    if !root.is-running: VerticalLayout {
-                        alignment: center;
-                        height: 80px;
-                        spacing: 4px;
-                        Text {
-                            text: "Layanan dalam keadaan nonaktif";
-                            font-size: 13px;
-                            font-weight: 600;
-                            color: #cbd5e1;
-                            horizontal-alignment: center;
-                        }
-                        Text {
-                            text: "Klik tombol di bawah untuk menyalakan Nginx, PHP, dan MariaDB";
-                            font-size: 11px;
-                            color: #64748b;
-                            horizontal-alignment: center;
+                    Button {
+                        text: "Simpan";
+                        clicked => {
+                            root.save-settings(web-port-input.text, php-port-input.text, db-port-input.text);
+                            root.show-settings = false;
                         }
                     }
                 }
             }
+        }
 
-            // DB Info Pill (only when running & in setup mode)
-            if root.is-running && root.is-setup-mode: Rectangle {
-                background: #172033;
-                border-radius: 6px;
-                border-width: 1px;
-                border-color: #1e3a8a;
+        // B. VIEW 5.4: LOG MONITOR VIEW
+        if !root.show-settings && root.show-log-drawer: VerticalLayout {
+            spacing: 8px;
+
+            // Compact Top Summary Bar
+            HorizontalLayout {
+                alignment: space-between;
                 height: 32px;
 
                 HorizontalLayout {
-                    padding-left: 10px;
-                    padding-right: 6px;
-                    alignment: space-between;
-
+                    spacing: 16px;
                     HorizontalLayout {
-                        spacing: 12px;
+                        spacing: 6px;
+                        alignment: center;
+                        Rectangle {
+                            width: 9px;
+                            height: 9px;
+                            border-radius: 5px;
+                            background: root.is-running ? #16a34a : #94a3b8;
+                            y: 11px;
+                        }
                         Text {
-                            text: "Database: " + root.db-name;
-                            font-size: 11px;
+                            text: root.is-running ? "Berjalan" : "Berhenti";
+                            font-size: 12px;
                             font-weight: 600;
-                            color: #93c5fd;
-                            vertical-alignment: center;
-                        }
-                        Text {
-                            text: "User: " + root.db-user;
-                            font-size: 11px;
-                            color: #cbd5e1;
-                            vertical-alignment: center;
-                        }
-                        Text {
-                            text: "Port: " + root.db-port;
-                            font-size: 11px;
-                            color: #cbd5e1;
+                            color: root.is-running ? #16a34a : #64748b;
                             vertical-alignment: center;
                         }
                     }
+                    HorizontalLayout {
+                        spacing: 6px;
+                        Text { text: "Host:"; font-size: 12px; color: #64748b; vertical-alignment: center; }
+                        Text { text: root.host-url; font-size: 12px; font-weight: 600; color: #0f172a; vertical-alignment: center; }
+                    }
+                }
 
-                    Rectangle {
-                        background: #1d4ed8;
-                        border-radius: 4px;
-                        width: 52px;
-                        height: 22px;
-                        y: 5px;
+                HorizontalLayout {
+                    spacing: 6px;
+                    if root.is-running: Rectangle {
+                        background: #f87171;
+                        border-radius: 5px;
+                        width: 120px;
+                        height: 28px;
                         TouchArea {
-                            clicked => { root.copy-db-info(); }
+                            enabled: !root.is-busy;
+                            clicked => { root.stop-services(); }
                         }
                         Text {
-                            text: root.db-copy-text;
+                            text: "■ Hentikan Layanan";
                             font-size: 11px;
                             font-weight: 600;
                             color: #ffffff;
@@ -338,14 +234,348 @@ export component MainWindow inherits Window {
                             vertical-alignment: center;
                         }
                     }
+                    Rectangle {
+                        background: #ffffff;
+                        border-radius: 5px;
+                        border-width: 1px;
+                        border-color: #cbd5e1;
+                        width: 90px;
+                        height: 28px;
+                        TouchArea {
+                            enabled: root.is-running;
+                            clicked => { root.open-shop(); }
+                        }
+                        Text {
+                            text: "🏪 Buka Toko";
+                            font-size: 11px;
+                            font-weight: 600;
+                            color: root.is-running ? #2563eb : #94a3b8;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                    }
+                    Rectangle {
+                        background: #ffffff;
+                        border-radius: 5px;
+                        border-width: 1px;
+                        border-color: #cbd5e1;
+                        width: 70px;
+                        height: 28px;
+                        TouchArea {
+                            enabled: root.is-running && !root.is-setup-mode;
+                            clicked => { root.open-admin(); }
+                        }
+                        Text {
+                            text: "👤 Admin";
+                            font-size: 11px;
+                            font-weight: 600;
+                            color: (root.is-running && !root.is-setup-mode) ? #2563eb : #94a3b8;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                    }
                 }
             }
 
-            // Main Action Button (Start / Stop)
+            // Filter Radio Pill Bar
+            HorizontalLayout {
+                spacing: 12px;
+                height: 24px;
+                Text {
+                    text: "Filter:";
+                    font-size: 12px;
+                    color: #475569;
+                    vertical-alignment: center;
+                }
+
+                HorizontalLayout {
+                    spacing: 14px;
+                    Rectangle {
+                        background: transparent;
+                        TouchArea { clicked => { root.toggle-log-filter("ALL"); } }
+                        HorizontalLayout {
+                            spacing: 4px;
+                            Text { text: root.log-filter == "ALL" ? "🔵" : "⚪"; font-size: 10px; vertical-alignment: center; }
+                            Text { text: "Semua"; font-size: 12px; color: root.log-filter == "ALL" ? #2563eb : #475569; font-weight: root.log-filter == "ALL" ? 600 : 400; vertical-alignment: center; }
+                        }
+                    }
+                    Rectangle {
+                        background: transparent;
+                        TouchArea { clicked => { root.toggle-log-filter("NGINX"); } }
+                        HorizontalLayout {
+                            spacing: 4px;
+                            Text { text: root.log-filter == "NGINX" ? "🔵" : "⚪"; font-size: 10px; vertical-alignment: center; }
+                            Text { text: "Nginx"; font-size: 12px; color: root.log-filter == "NGINX" ? #2563eb : #475569; font-weight: root.log-filter == "NGINX" ? 600 : 400; vertical-alignment: center; }
+                        }
+                    }
+                    Rectangle {
+                        background: transparent;
+                        TouchArea { clicked => { root.toggle-log-filter("PHP"); } }
+                        HorizontalLayout {
+                            spacing: 4px;
+                            Text { text: root.log-filter == "PHP" ? "🔵" : "⚪"; font-size: 10px; vertical-alignment: center; }
+                            Text { text: "PHP"; font-size: 12px; color: root.log-filter == "PHP" ? #2563eb : #475569; font-weight: root.log-filter == "PHP" ? 600 : 400; vertical-alignment: center; }
+                        }
+                    }
+                    Rectangle {
+                        background: transparent;
+                        TouchArea { clicked => { root.toggle-log-filter("DB"); } }
+                        HorizontalLayout {
+                            spacing: 4px;
+                            Text { text: root.log-filter == "DB" ? "🔵" : "⚪"; font-size: 10px; vertical-alignment: center; }
+                            Text { text: "DB"; font-size: 12px; color: root.log-filter == "DB" ? #2563eb : #475569; font-weight: root.log-filter == "DB" ? 600 : 400; vertical-alignment: center; }
+                        }
+                    }
+                }
+            }
+
+            // Dark Terminal Box
+            ScrollView {
+                height: 200px;
+                Rectangle {
+                    background: #0f172a;
+                    border-radius: 8px;
+                    border-width: 1px;
+                    border-color: #1e293b;
+                    min-height: 200px;
+                    VerticalLayout {
+                        padding: 10px;
+                        Text {
+                            text: root.log-content != "" ? root.log-content : "Menunggu log aktivitas dari server...";
+                            font-size: 11px;
+                            font-family: "monospace";
+                            color: #e2e8f0;
+                            wrap: word-wrap;
+                        }
+                    }
+                }
+            }
+
+            // Log Actions (Auto-scroll, Clear, Copy)
+            HorizontalLayout {
+                alignment: space-between;
+                height: 28px;
+
+                HorizontalLayout {
+                    spacing: 6px;
+                    CheckBox {
+                        text: "Auto-scroll";
+                        checked <=> root.auto-scroll;
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: 8px;
+                    Rectangle {
+                        background: #ffffff;
+                        border-radius: 5px;
+                        border-width: 1px;
+                        border-color: #cbd5e1;
+                        width: 130px;
+                        height: 26px;
+                        TouchArea { clicked => { root.clear-logs(); } }
+                        HorizontalLayout {
+                            alignment: center;
+                            spacing: 4px;
+                            Text { text: "🗑"; font-size: 11px; vertical-alignment: center; }
+                            Text { text: "Bersihkan Tampilan"; font-size: 11px; color: #475569; font-weight: 500; vertical-alignment: center; }
+                        }
+                    }
+
+                    Rectangle {
+                        background: #ffffff;
+                        border-radius: 5px;
+                        border-width: 1px;
+                        border-color: #cbd5e1;
+                        width: 90px;
+                        height: 26px;
+                        TouchArea { clicked => { root.copy-logs(); } }
+                        HorizontalLayout {
+                            alignment: center;
+                            spacing: 4px;
+                            Text { text: "📋"; font-size: 11px; vertical-alignment: center; }
+                            Text { text: root.copy-log-text; font-size: 11px; color: #475569; font-weight: 500; vertical-alignment: center; }
+                        }
+                    }
+                }
+            }
+        }
+
+        // C. VIEW 5.1 / 5.2 / 5.3: STANDARD SERVICE DASHBOARD
+        if !root.show-settings && !root.show-log-drawer: VerticalLayout {
+            spacing: 12px;
+
+            // Status and Host Form Lines
+            Rectangle {
+                background: #ffffff;
+                border-radius: 8px;
+                border-width: 1px;
+                border-color: #e2e8f0;
+                height: root.is-running && !root.is-setup-mode && root.admin-folder != "" ? 82px : 64px;
+
+                VerticalLayout {
+                    padding-left: 14px;
+                    padding-right: 14px;
+                    padding-top: 10px;
+                    padding-bottom: 10px;
+                    spacing: 6px;
+
+                    // Row 1: Status
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Text { text: "Status"; font-size: 12px; color: #64748b; width: 60px; vertical-alignment: center; }
+                        Text { text: ":"; font-size: 12px; color: #94a3b8; width: 10px; vertical-alignment: center; }
+                        HorizontalLayout {
+                            spacing: 6px;
+                            alignment: start;
+                            Rectangle {
+                                width: 9px;
+                                height: 9px;
+                                border-radius: 5px;
+                                background: root.is-running ? #16a34a : #94a3b8;
+                                y: 5px;
+                            }
+                            Text {
+                                text: root.is-running ? "Berjalan" : "Berhenti";
+                                font-size: 12px;
+                                font-weight: 600;
+                                color: root.is-running ? #16a34a : #64748b;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+
+                    // Row 2: Host
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Text { text: "Host"; font-size: 12px; color: #64748b; width: 60px; vertical-alignment: center; }
+                        Text { text: ":"; font-size: 12px; color: #94a3b8; width: 10px; vertical-alignment: center; }
+                        Text {
+                            text: root.is-running ? root.host-url : "127.0.0.1:8080";
+                            font-size: 12px;
+                            font-weight: 500;
+                            color: #1e293b;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    // Row 3 (State 5.3): Detected Admin Folder
+                    if root.is-running && !root.is-setup-mode && root.admin-folder != "": HorizontalLayout {
+                        spacing: 8px;
+                        Text { text: "Admin"; font-size: 12px; color: #64748b; width: 60px; vertical-alignment: center; }
+                        Text { text: ":"; font-size: 12px; color: #94a3b8; width: 10px; vertical-alignment: center; }
+                        HorizontalLayout {
+                            spacing: 6px;
+                            Text {
+                                text: "/" + root.admin-folder + "/";
+                                font-size: 12px;
+                                font-weight: 600;
+                                color: #1e293b;
+                                vertical-alignment: center;
+                            }
+                            Text {
+                                text: "(terdeteksi)";
+                                font-size: 12px;
+                                font-weight: 600;
+                                color: #16a34a;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // State 5.2: Database Credential Card for Setup Mode
+            if root.is-running && root.is-setup-mode: Rectangle {
+                background: #f0f7ff;
+                border-radius: 8px;
+                border-width: 1px;
+                border-color: #bfdbfe;
+                height: 106px;
+
+                VerticalLayout {
+                    padding: 10px;
+                    spacing: 8px;
+
+                    // Card Header with Salin Info Button
+                    HorizontalLayout {
+                        alignment: space-between;
+                        HorizontalLayout {
+                            spacing: 6px;
+                            Text { text: "🗄"; font-size: 13px; vertical-alignment: center; }
+                            Text {
+                                text: "Kredensial Database untuk Setup";
+                                font-size: 12px;
+                                font-weight: 700;
+                                color: #1e40af;
+                                vertical-alignment: center;
+                            }
+                        }
+
+                        // Salin Info Button
+                        Rectangle {
+                            background: #ffffff;
+                            border-radius: 4px;
+                            border-width: 1px;
+                            border-color: #bfdbfe;
+                            width: 82px;
+                            height: 22px;
+                            TouchArea { clicked => { root.copy-db-info(); } }
+                            HorizontalLayout {
+                                alignment: center;
+                                spacing: 4px;
+                                Text { text: "📋"; font-size: 10px; vertical-alignment: center; }
+                                Text {
+                                    text: root.db-copy-text;
+                                    font-size: 11px;
+                                    font-weight: 600;
+                                    color: #1e40af;
+                                    vertical-alignment: center;
+                                }
+                            }
+                        }
+                    }
+
+                    // 2-Column Info Table
+                    HorizontalLayout {
+                        // Left Column
+                        VerticalLayout {
+                            spacing: 4px;
+                            HorizontalLayout {
+                                Text { text: "Host"; font-size: 11px; color: #475569; width: 45px; }
+                                Text { text: ": " + root.db-host; font-size: 11px; font-weight: 600; color: #1e293b; }
+                            }
+                            HorizontalLayout {
+                                Text { text: "User"; font-size: 11px; color: #475569; width: 45px; }
+                                Text { text: ": " + root.db-user; font-size: 11px; font-weight: 600; color: #1e293b; }
+                            }
+                            HorizontalLayout {
+                                Text { text: "DB"; font-size: 11px; color: #475569; width: 45px; }
+                                Text { text: ": " + root.db-name; font-size: 11px; font-weight: 600; color: #1e293b; }
+                            }
+                        }
+
+                        // Right Column
+                        VerticalLayout {
+                            spacing: 4px;
+                            HorizontalLayout {
+                                Text { text: "Port"; font-size: 11px; color: #475569; width: 45px; }
+                                Text { text: ": " + root.db-port; font-size: 11px; font-weight: 600; color: #1e293b; }
+                            }
+                            HorizontalLayout {
+                                Text { text: "Pass"; font-size: 11px; color: #475569; width: 45px; }
+                                Text { text: ": (kosong)"; font-size: 11px; color: #64748b; }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Big Action Button (Jalankan Layanan vs Hentikan Layanan)
             Rectangle {
                 height: 44px;
                 border-radius: 8px;
-                background: root.is-running ? #dc2626 : #059669;
+                background: root.is-running ? #f87171 : #2563eb;
 
                 TouchArea {
                     enabled: !root.is-busy;
@@ -358,154 +588,179 @@ export component MainWindow inherits Window {
                     }
                 }
 
+                HorizontalLayout {
+                    alignment: center;
+                    spacing: 8px;
+                    Text {
+                        text: root.is-running ? "■" : "▶";
+                        font-size: 13px;
+                        color: #ffffff;
+                        vertical-alignment: center;
+                    }
+                    Text {
+                        text: root.is-busy ? "Memproses..." : (root.is-running ? "Hentikan Layanan" : "Jalankan Layanan");
+                        font-size: 14px;
+                        font-weight: 700;
+                        color: #ffffff;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+
+            // Secondary Buttons (Buka Toko / Login Admin)
+            HorizontalLayout {
+                spacing: 12px;
+                height: 42px;
+
+                // Button 1: Buka Toko / Mulai Setup Toko
+                Rectangle {
+                    background: !root.is-running ? #f1f5f9 : (root.is-setup-mode ? #2563eb : #eff6ff);
+                    border-radius: 8px;
+                    border-width: 1px;
+                    border-color: !root.is-running ? #e2e8f0 : (root.is-setup-mode ? #1d4ed8 : #bfdbfe);
+
+                    TouchArea {
+                        enabled: root.is-running;
+                        clicked => { root.open-shop(); }
+                    }
+
+                    HorizontalLayout {
+                        alignment: center;
+                        spacing: 8px;
+                        Text {
+                            text: !root.is-running ? "🏪" : (root.is-setup-mode ? "🌐" : "🏪");
+                            font-size: 13px;
+                            vertical-alignment: center;
+                        }
+                        Text {
+                            text: !root.is-running ? "Buka Toko (mati)" : (root.is-setup-mode ? "Mulai Setup Toko" : "Buka Toko");
+                            font-size: 12px;
+                            font-weight: 600;
+                            color: !root.is-running ? #94a3b8 : (root.is-setup-mode ? #ffffff : #2563eb);
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+
+                // Button 2: Login Admin
+                Rectangle {
+                    background: (!root.is-running || root.is-setup-mode) ? #f1f5f9 : #eff6ff;
+                    border-radius: 8px;
+                    border-width: 1px;
+                    border-color: (!root.is-running || root.is-setup-mode) ? #e2e8f0 : #bfdbfe;
+
+                    TouchArea {
+                        enabled: root.is-running && !root.is-setup-mode && root.admin-folder != "";
+                        clicked => { root.open-admin(); }
+                    }
+
+                    HorizontalLayout {
+                        alignment: center;
+                        spacing: 8px;
+                        Text {
+                            text: (!root.is-running || root.is-setup-mode) ? "🔒" : "👤";
+                            font-size: 13px;
+                            vertical-alignment: center;
+                        }
+                        Text {
+                            text: !root.is-running ? "Login Admin (mati)" : (root.is-setup-mode ? "Login Admin (Terkunci)" : "Login Admin");
+                            font-size: 12px;
+                            font-weight: 600;
+                            color: (!root.is-running || root.is-setup-mode) ? #94a3b8 : #2563eb;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+            }
+
+            // State 5.2 Footnote: Selesaikan wizard setup untuk login admin
+            if root.is-running && root.is-setup-mode: HorizontalLayout {
+                spacing: 6px;
+                alignment: start;
+                Text { text: "ⓘ"; font-size: 12px; color: #3b82f6; vertical-alignment: center; }
                 Text {
-                    text: root.is-busy ? "Memproses..." : (root.is-running ? "■  Hentikan Layanan" : "▶  Jalankan Layanan");
-                    font-size: 14px;
-                    font-weight: 700;
-                    color: #ffffff;
-                    horizontal-alignment: center;
+                    text: "Selesaikan wizard setup untuk login admin";
+                    font-size: 11px;
+                    color: #64748b;
                     vertical-alignment: center;
                 }
             }
         }
 
-        // Tab 1: Log View
-        if root.active-tab == 1: VerticalLayout {
-            spacing: 8px;
-
-            HorizontalLayout {
-                alignment: space-between;
-                HorizontalLayout {
-                    spacing: 4px;
-                    Button {
-                        text: root.log-filter == "ALL" ? "[Semua]" : "Semua";
-                        clicked => { root.toggle-log-filter("ALL"); }
-                    }
-                    Button {
-                        text: root.log-filter == "NGINX" ? "[Nginx]" : "Nginx";
-                        clicked => { root.toggle-log-filter("NGINX"); }
-                    }
-                    Button {
-                        text: root.log-filter == "PHP" ? "[PHP]" : "PHP";
-                        clicked => { root.toggle-log-filter("PHP"); }
-                    }
-                    Button {
-                        text: root.log-filter == "DB" ? "[DB]" : "DB";
-                        clicked => { root.toggle-log-filter("DB"); }
-                    }
-                }
-                HorizontalLayout {
-                    spacing: 4px;
-                    Button {
-                        text: root.copy-log-text;
-                        clicked => { root.copy-logs(); }
-                    }
-                    Button {
-                        text: "Bersihkan";
-                        clicked => { root.clear-logs(); }
-                    }
-                    Button {
-                        text: "📁 Folder";
-                        clicked => { root.open-logs-folder(); }
-                    }
-                }
-            }
-
-            ScrollView {
-                height: 195px;
-                Rectangle {
-                    background: #090a0d;
-                    border-radius: 6px;
-                    border-width: 1px;
-                    border-color: #1f222a;
-                    min-height: 195px;
-                    VerticalLayout {
-                        padding: 8px;
-                        Text {
-                            text: root.log-content != "" ? root.log-content : "Menunggu log aktivitas...";
-                            font-size: 11px;
-                            font-family: "monospace";
-                            color: #cbd5e1;
-                            wrap: word-wrap;
-                        }
-                    }
-                }
-            }
-        }
-
-        // Tab 2: Settings View
-        if root.active-tab == 2: VerticalLayout {
-            spacing: 10px;
-
-            Rectangle {
-                background: #191b22;
-                border-radius: 8px;
-                border-width: 1px;
-                border-color: #272a34;
-                height: 232px;
-
-                VerticalLayout {
-                    padding: 14px;
-                    spacing: 10px;
-
-                    Text {
-                        text: "Konfigurasi Port Jaringan";
-                        font-size: 13px;
-                        font-weight: 700;
-                        color: #ffffff;
-                    }
-
-                    HorizontalLayout {
-                        spacing: 10px;
-                        Text { text: "Port Web (Nginx):"; font-size: 12px; color: #94a3b8; vertical-alignment: center; width: 140px; }
-                        web-port-input := LineEdit { text: root.cfg-web-port; }
-                    }
-
-                    HorizontalLayout {
-                        spacing: 10px;
-                        Text { text: "Port PHP (FastCGI):"; font-size: 12px; color: #94a3b8; vertical-alignment: center; width: 140px; }
-                        php-port-input := LineEdit { text: root.cfg-php-port; }
-                    }
-
-                    HorizontalLayout {
-                        spacing: 10px;
-                        Text { text: "Port Database (MariaDB):"; font-size: 12px; color: #94a3b8; vertical-alignment: center; width: 140px; }
-                        db-port-input := LineEdit { text: root.cfg-db-port; }
-                    }
-
-                    HorizontalLayout {
-                        spacing: 8px;
-                        alignment: end;
-                        Button {
-                            text: "Batal";
-                            clicked => { root.active-tab = 0; }
-                        }
-                        Button {
-                            text: "Simpan Port";
-                            clicked => {
-                                root.save-settings(web-port-input.text, php-port-input.text, db-port-input.text);
-                                root.active-tab = 0;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // 4. Subtle Bottom Status
+        // ==========================================
+        // 3. BOTTOM FOOTER BAR
+        // ==========================================
         HorizontalLayout {
             alignment: space-between;
-            Text {
-                text: "PrestaShop 9.0 • MariaDB 11.4 • PHP 8.4";
-                font-size: 11px;
-                color: #475569;
-                vertical-alignment: center;
+            height: 24px;
+
+            // Left: Pengaturan Button
+            Rectangle {
+                background: transparent;
+                TouchArea {
+                    clicked => { root.show-settings = !root.show-settings; }
+                }
+                HorizontalLayout {
+                    spacing: 6px;
+                    Text { text: "⚙"; font-size: 13px; color: #64748b; vertical-alignment: center; }
+                    Text {
+                        text: root.show-settings ? "Tutup Pengaturan" : "Pengaturan";
+                        font-size: 12px;
+                        color: #64748b;
+                        font-weight: 500;
+                        vertical-alignment: center;
+                    }
+                }
             }
-            Text {
-                text: root.launcher-version;
-                font-size: 11px;
-                color: #475569;
-                vertical-alignment: center;
+
+            // Center (Only in Log Monitor): Buka Folder Logs
+            if root.show-log-drawer && !root.show-settings: Rectangle {
+                background: transparent;
+                TouchArea { clicked => { root.open-logs-folder(); } }
+                HorizontalLayout {
+                    spacing: 6px;
+                    Text { text: "📁"; font-size: 12px; color: #475569; vertical-alignment: center; }
+                    Text {
+                        text: "Buka Folder Logs";
+                        font-size: 12px;
+                        color: #475569;
+                        font-weight: 500;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+
+            // Right: Version (in 5.1) vs Tampilkan/Sembunyikan Log (in 5.2/5.3/5.4)
+            if !root.show-settings: HorizontalLayout {
+                if !root.is-running && !root.show-log-drawer: Text {
+                    text: root.launcher-version;
+                    font-size: 12px;
+                    color: #94a3b8;
+                    vertical-alignment: center;
+                }
+
+                if root.is-running || root.show-log-drawer: Rectangle {
+                    background: transparent;
+                    TouchArea {
+                        clicked => { root.show-log-drawer = !root.show-log-drawer; }
+                    }
+                    HorizontalLayout {
+                        spacing: 4px;
+                        Text {
+                            text: root.show-log-drawer ? "▲" : "▼";
+                            font-size: 10px;
+                            color: #475569;
+                            vertical-alignment: center;
+                        }
+                        Text {
+                            text: root.show-log-drawer ? "Sembunyikan" : "Tampilkan Log";
+                            font-size: 12px;
+                            font-weight: 600;
+                            color: #334155;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
             }
         }
     }
