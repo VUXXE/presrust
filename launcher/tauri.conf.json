@@ -11,7 +11,8 @@
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
-      "icons/icon.png"
+      "icons/icon.icns",
+      "icons/icon.ico"
     ]
   },
   "app": {
@@ -20,14 +21,17 @@
       {
         "title": "PrestaShop Portable",
         "label": "main",
-        "width": 600,
-        "height": 420,
-        "minWidth": 600,
-        "maxWidth": 600,
-        "minHeight": 420,
-        "maxHeight": 420,
+        "width": 620,
+        "height": 480,
+        "minWidth": 620,
+        "maxWidth": 620,
+        "minHeight": 480,
+        "maxHeight": 480,
         "resizable": false,
-        "decorations": false,
+        "decorations": true,
+        "transparent": false,
+        "visible": true,
+        "focus": true,
         "center": true
       }
     ],

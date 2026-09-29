@@ -8,13 +8,6 @@ const invoke = (cmd, args) => {
   return Promise.resolve({});
 };
 
-const getCurrentWindow = () => {
-  if (window.__TAURI__ && window.__TAURI__.window && window.__TAURI__.window.getCurrentWindow) {
-    return window.__TAURI__.window.getCurrentWindow();
-  }
-  return null;
-};
-
 // State
 let appState = {
   isRunning: false,
@@ -36,8 +29,6 @@ let isLogViewActive = false;
 
 // DOM Elements
 const appTitle = document.getElementById("appTitle");
-const btnMinimize = document.getElementById("btnMinimize");
-const btnClose = document.getElementById("btnClose");
 
 const dashboardView = document.getElementById("dashboardView");
 const logMonitorView = document.getElementById("logMonitorView");
@@ -98,19 +89,9 @@ const inputDbPort = document.getElementById("inputDbPort");
 const btnCancelSettings = document.getElementById("btnCancelSettings");
 const btnSaveSettings = document.getElementById("btnSaveSettings");
 
-// 1. Window Controls
-btnMinimize.addEventListener("click", () => {
-  const win = getCurrentWindow();
-  if (win) win.minimize();
-});
-
-btnClose.addEventListener("click", async () => {
-  const win = getCurrentWindow();
-  if (win) {
-    await invoke("stop_services");
-    win.close();
-  }
-});
+// Native window controls (minimize / close) are provided by the OS
+// via Tauri `decorations: true`. No JS wiring needed. Service cleanup
+// on native close is handled in Rust via `CloseRequested`.
 
 // 2. UI Render based on state
 function renderUI() {
@@ -127,12 +108,12 @@ function renderUI() {
   if (isRunning) {
     statusDot.className = "status-dot green";
     statusText.className = "status-text green";
-    statusText.textContent = "Berjalan";
+    statusText.textContent = "Running";
     hostValue.textContent = hostUrl;
   } else {
     statusDot.className = "status-dot";
     statusText.className = "status-text";
-    statusText.textContent = isBusy ? "Memproses..." : "Berhenti";
+    statusText.textContent = isBusy ? "Processing..." : "Stopped";
     hostValue.textContent = `127.0.0.1:${webPort}`;
   }
 
@@ -158,11 +139,11 @@ function renderUI() {
   if (isRunning) {
     btnMainAction.className = "btn-primary-action running";
     mainActionIcon.src = "icons/stop-white.svg";
-    mainActionText.textContent = isBusy ? "Menghentikan..." : "Hentikan Layanan";
+    mainActionText.textContent = isBusy ? "Stopping..." : "Stop Services";
   } else {
     btnMainAction.className = "btn-primary-action";
     mainActionIcon.src = "icons/play-white.svg";
-    mainActionText.textContent = isBusy ? "Memulai..." : "Jalankan Layanan";
+    mainActionText.textContent = isBusy ? "Starting..." : "Start Services";
   }
   btnMainAction.disabled = isBusy;
 
@@ -172,34 +153,34 @@ function renderUI() {
     btnOpenShop.className = "btn-secondary disabled";
     btnOpenShop.disabled = true;
     shopBtnIcon.src = "icons/store-gray.svg";
-    shopBtnText.textContent = "Buka Toko (mati)";
+    shopBtnText.textContent = "Open Shop (off)";
 
     btnOpenAdmin.className = "btn-secondary disabled";
     btnOpenAdmin.disabled = true;
     adminBtnIcon.src = "icons/user-gray.svg";
-    adminBtnText.textContent = "Login Admin (mati)";
+    adminBtnText.textContent = "Admin Login (off)";
   } else if (isSetupMode) {
     // State 5.2: Setup active
     btnOpenShop.className = "btn-secondary setup-mode";
     btnOpenShop.disabled = false;
     shopBtnIcon.src = "icons/globe-white.svg";
-    shopBtnText.textContent = "Mulai Setup Toko";
+    shopBtnText.textContent = "Start Shop Setup";
 
     btnOpenAdmin.className = "btn-secondary disabled";
     btnOpenAdmin.disabled = true;
     adminBtnIcon.src = "icons/lock-gray.svg";
-    adminBtnText.textContent = "Login Admin (Terkunci)";
+    adminBtnText.textContent = "Admin Login (Locked)";
   } else {
     // State 5.3: Ready
     btnOpenShop.className = "btn-secondary active-outline";
     btnOpenShop.disabled = false;
     shopBtnIcon.src = "icons/store-blue.svg";
-    shopBtnText.textContent = "Buka Toko";
+    shopBtnText.textContent = "Open Shop";
 
     btnOpenAdmin.className = "btn-secondary active-outline";
     btnOpenAdmin.disabled = !adminFolder;
     adminBtnIcon.src = "icons/user-blue.svg";
-    adminBtnText.textContent = "Login Admin";
+    adminBtnText.textContent = "Admin Login";
   }
 
   // Footer Controls
@@ -211,7 +192,7 @@ function renderUI() {
     versionTag.style.display = "none";
     btnToggleLog.style.display = "flex";
     toggleLogArrow.textContent = isLogViewActive ? "▲" : "▼";
-    toggleLogText.textContent = isLogViewActive ? "Sembunyikan" : "Tampilkan Log";
+    toggleLogText.textContent = isLogViewActive ? "Hide" : "Show Logs";
   }
 
   // Compact Log Summary
@@ -256,14 +237,14 @@ btnOpenLogsFolder.addEventListener("click", () => invoke("open_logs_folder"));
 btnCopyDb.addEventListener("click", () => {
   const text = `Host: ${appState.dbHost}\nPort: ${appState.dbPort}\nUser: ${appState.dbUser}\nPassword: \nDatabase: ${appState.dbName}`;
   navigator.clipboard.writeText(text);
-  copyDbText.textContent = "Tersalin!";
-  setTimeout(() => { copyDbText.textContent = "Salin Info"; }, 2000);
+  copyDbText.textContent = "Copied!";
+  setTimeout(() => { copyDbText.textContent = "Copy Info"; }, 2000);
 });
 
 btnCopyLogs.addEventListener("click", () => {
   navigator.clipboard.writeText(logOutput.textContent);
-  copyLogsText.textContent = "Tersalin!";
-  setTimeout(() => { copyLogsText.textContent = "Salin Log"; }, 2000);
+  copyLogsText.textContent = "Copied!";
+  setTimeout(() => { copyLogsText.textContent = "Copy Log"; }, 2000);
 });
 
 btnClearLogs.addEventListener("click", async () => {
@@ -289,7 +270,7 @@ function renderLogs() {
     return true;
   });
 
-  logOutput.textContent = filtered.length > 0 ? filtered.join("\n") : "Menunggu log aktivitas...";
+  logOutput.textContent = filtered.length > 0 ? filtered.join("\n") : "Waiting for activity logs...";
   if (chkAutoScroll.checked) {
     terminalConsole.scrollTop = terminalConsole.scrollHeight;
   }
@@ -330,7 +311,7 @@ btnSaveSettings.addEventListener("click", async () => {
     settingsModal.style.display = "none";
     await syncState();
   } catch (err) {
-    alert("Gagal menyimpan port: " + err);
+    alert("Failed to save ports: " + err);
   }
 });
 

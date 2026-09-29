@@ -14,8 +14,8 @@
   --success-green: #16a34a;
   --card-db-bg: #f0f7ff;
   --card-db-border: #bfdbfe;
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Cascadia Mono", "Liberation Mono", monospace;
 }
 
 * {
@@ -23,6 +23,15 @@
   margin: 0;
   padding: 0;
   user-select: none;
+}
+
+/* Allow text selection where the user needs it (native behavior):
+   log console output and settings inputs must stay selectable. */
+.terminal-console,
+.terminal-console pre,
+.form-group input {
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 body {
@@ -43,35 +52,29 @@ body {
   height: 100vh;
   width: 100vw;
   background-color: var(--bg-app);
-  border: 1px solid var(--border-card);
 }
 
-/* 1. Titlebar (Draggable) */
-.titlebar {
-  height: 38px;
+/* 1. App Header */
+.app-header {
+  height: 42px;
+  min-height: 42px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 12px;
+  padding: 0 16px;
   background-color: var(--bg-app);
   border-bottom: 1px solid #f1f5f9;
-  cursor: grab;
 }
 
-.titlebar:active {
-  cursor: grabbing;
-}
-
-.titlebar-brand {
+.header-brand {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
 .mascot-avatar {
-  width: 26px;
-  height: 26px;
-  border-radius: 13px;
+  width: 28px;
+  height: 28px;
+  border-radius: 14px;
   background-color: #ffffff;
   border: 1px solid var(--border-card);
   display: flex;
@@ -81,52 +84,21 @@ body {
 }
 
 .mascot-avatar img {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   object-fit: contain;
 }
 
 .app-title {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--text-main);
-}
-
-.titlebar-controls {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-
-.win-btn {
-  background: transparent;
-  border: none;
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  color: var(--text-muted);
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.win-btn:hover {
-  background-color: #e2e8f0;
-  color: var(--text-main);
-}
-
-.win-btn.close:hover {
-  background-color: var(--danger-red);
-  color: #ffffff;
 }
 
 /* 2. Content Area */
 .content-area {
   flex: 1;
-  padding: 12px 16px;
+  padding: 10px 16px 8px 16px;
   display: flex;
   flex-direction: column;
   position: relative;
@@ -136,7 +108,7 @@ body {
 .view-panel {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   height: 100%;
 }
 
@@ -511,7 +483,8 @@ body {
 
 /* Terminal Console */
 .terminal-console {
-  height: 195px;
+  flex: 1;
+  min-height: 190px;
   background-color: #0f172a;
   border: 1px solid #1e293b;
   border-radius: 8px;
@@ -661,7 +634,8 @@ body {
 
 /* 3. Bottom Bar */
 .bottom-bar {
-  height: 34px;
+  height: 42px;
+  min-height: 42px;
   display: flex;
   align-items: center;
   justify-content: space-between;

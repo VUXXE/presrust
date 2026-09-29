@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,17 +8,13 @@
 </head>
 <body>
   <div class="window-container">
-    <!-- 1. Custom Titlebar (Frameless Drag Region) -->
-    <header class="titlebar" data-tauri-drag-region>
-      <div class="titlebar-brand" data-tauri-drag-region>
+    <!-- 1. Header Brand (Icon + Title) - Native OS window controls will be in the OS titlebar -->
+    <header class="app-header">
+      <div class="header-brand">
         <div class="mascot-avatar">
           <img src="preston.png" alt="PrestaShop" />
         </div>
         <span class="app-title" id="appTitle">PrestaShop Portable</span>
-      </div>
-      <div class="titlebar-controls">
-        <button class="win-btn minimize" id="btnMinimize" title="Minimize">—</button>
-        <button class="win-btn close" id="btnClose" title="Tutup">✕</button>
       </div>
     </header>
 
@@ -33,7 +29,7 @@
             <span class="info-colon">:</span>
             <div class="status-indicator">
               <span class="status-dot" id="statusDot"></span>
-              <span class="status-text" id="statusText">Berhenti</span>
+              <span class="status-text" id="statusText">Stopped</span>
             </div>
           </div>
           <div class="info-row">
@@ -46,7 +42,7 @@
             <span class="info-colon">:</span>
             <div class="admin-value">
               <span class="admin-folder" id="adminFolderText">/admin/</span>
-              <span class="detected-badge">(terdeteksi)</span>
+              <span class="detected-badge">(detected)</span>
             </div>
           </div>
         </div>
@@ -56,11 +52,11 @@
           <div class="db-card-header">
             <div class="db-card-title">
               <img src="icons/database-blue.svg" class="icon-inline" alt="" />
-              <span>Kredensial Database untuk Setup</span>
+              <span>Database Credentials for Setup</span>
             </div>
             <button class="btn-copy-db" id="btnCopyDb">
               <img src="icons/copy-blue.svg" class="icon-sm" alt="" />
-              <span id="copyDbText">Salin Info</span>
+              <span id="copyDbText">Copy Info</span>
             </button>
           </div>
           <div class="db-grid">
@@ -71,7 +67,7 @@
             </div>
             <div class="db-col">
               <div class="db-item"><span class="k">Port</span><span class="v">: <b id="dbPort">3306</b></span></div>
-              <div class="db-item"><span class="k">Pass</span><span class="v muted">: (kosong)</span></div>
+              <div class="db-item"><span class="k">Pass</span><span class="v muted">: (empty)</span></div>
             </div>
           </div>
         </div>
@@ -79,25 +75,25 @@
         <!-- Big Primary Action Button (Start / Stop) -->
         <button class="btn-primary-action" id="btnMainAction">
           <img src="icons/play-white.svg" class="icon-action" id="mainActionIcon" alt="" />
-          <span id="mainActionText">Jalankan Layanan</span>
+          <span id="mainActionText">Start Services</span>
         </button>
 
-        <!-- Secondary Buttons (Buka Toko / Admin) -->
+        <!-- Secondary Buttons (Open Shop / Admin) -->
         <div class="secondary-actions">
           <button class="btn-secondary disabled" id="btnOpenShop" disabled>
             <img src="icons/store-gray.svg" class="icon-btn" id="shopBtnIcon" alt="" />
-            <span id="shopBtnText">Buka Toko (mati)</span>
+            <span id="shopBtnText">Open Shop (off)</span>
           </button>
           <button class="btn-secondary disabled" id="btnOpenAdmin" disabled>
             <img src="icons/user-gray.svg" class="icon-btn" id="adminBtnIcon" alt="" />
-            <span id="adminBtnText">Login Admin (mati)</span>
+            <span id="adminBtnText">Admin Login (off)</span>
           </button>
         </div>
 
         <!-- Footnote for State 5.2 -->
         <div class="footnote-info" id="setupFootnote" style="display: none;">
           <span class="badge-info">i</span>
-          <span>Selesaikan wizard setup untuk login admin</span>
+          <span>Complete the setup wizard to enable admin login</span>
         </div>
       </section>
 
@@ -108,7 +104,7 @@
           <div class="log-summary-left">
             <div class="status-indicator">
               <span class="status-dot green"></span>
-              <span class="status-text green">Berjalan</span>
+              <span class="status-text green">Running</span>
             </div>
             <div class="host-compact">
               <span class="k">Host:</span>
@@ -118,11 +114,11 @@
           <div class="log-summary-right">
             <button class="btn-sm btn-stop" id="btnLogStop">
               <img src="icons/stop-white.svg" class="icon-xs" alt="" />
-              <span>Hentikan Layanan</span>
+              <span>Stop Services</span>
             </button>
             <button class="btn-sm btn-outline" id="btnLogShop">
               <img src="icons/store-blue.svg" class="icon-xs" alt="" />
-              <span>Buka Toko</span>
+              <span>Open Shop</span>
             </button>
             <button class="btn-sm btn-outline" id="btnLogAdmin">
               <img src="icons/user-blue.svg" class="icon-xs" alt="" />
@@ -138,7 +134,7 @@
             <label class="radio-item">
               <input type="radio" name="logFilter" value="ALL" checked />
               <span class="radio-custom"></span>
-              <span class="radio-text">Semua</span>
+              <span class="radio-text">All</span>
             </label>
             <label class="radio-item">
               <input type="radio" name="logFilter" value="NGINX" />
@@ -160,7 +156,7 @@
 
         <!-- Dark Terminal Console -->
         <div class="terminal-console" id="terminalConsole">
-          <pre id="logOutput">Menunggu log aktivitas dari server...</pre>
+          <pre id="logOutput">Waiting for server activity logs...</pre>
         </div>
 
         <!-- Terminal Bottom Actions -->
@@ -172,11 +168,11 @@
           <div class="terminal-btns">
             <button class="btn-terminal" id="btnClearLogs">
               <img src="icons/trash-gray.svg" class="icon-xs" alt="" />
-              <span>Bersihkan Tampilan</span>
+              <span>Clear View</span>
             </button>
             <button class="btn-terminal" id="btnCopyLogs">
               <img src="icons/copy-gray.svg" class="icon-xs" alt="" />
-              <span id="copyLogsText">Salin Log</span>
+              <span id="copyLogsText">Copy Log</span>
             </button>
           </div>
         </div>
@@ -187,23 +183,23 @@
         <div class="card modal-card">
           <div class="modal-header">
             <img src="icons/gear-gray.svg" class="icon-inline" alt="" />
-            <h3>Pengaturan Port Jaringan</h3>
+            <h3>Network Port Settings</h3>
           </div>
           <div class="form-group">
-            <label for="inputWebPort">Port Web (Nginx):</label>
+            <label for="inputWebPort">Web Port (Nginx):</label>
             <input type="number" id="inputWebPort" value="8080" />
           </div>
           <div class="form-group">
-            <label for="inputPhpPort">Port PHP (FastCGI):</label>
+            <label for="inputPhpPort">PHP Port (FastCGI):</label>
             <input type="number" id="inputPhpPort" value="9000" />
           </div>
           <div class="form-group">
-            <label for="inputDbPort">Port Database (MariaDB):</label>
+            <label for="inputDbPort">Database Port (MariaDB):</label>
             <input type="number" id="inputDbPort" value="3306" />
           </div>
           <div class="modal-actions">
-            <button class="btn-modal cancel" id="btnCancelSettings">Batal</button>
-            <button class="btn-modal save" id="btnSaveSettings">Simpan Port</button>
+            <button class="btn-modal cancel" id="btnCancelSettings">Cancel</button>
+            <button class="btn-modal save" id="btnSaveSettings">Save Ports</button>
           </div>
         </div>
       </section>
@@ -213,19 +209,19 @@
     <footer class="bottom-bar">
       <button class="footer-btn" id="btnToggleSettings">
         <img src="icons/gear-gray.svg" class="icon-sm" alt="" />
-        <span>Pengaturan</span>
+        <span>Settings</span>
       </button>
 
       <button class="footer-btn" id="btnOpenLogsFolder" style="display: none;">
         <img src="icons/folder-gray.svg" class="icon-sm" alt="" />
-        <span>Buka Folder Logs</span>
+        <span>Open Logs Folder</span>
       </button>
 
       <div class="footer-right">
         <span class="version-tag" id="versionTag">v0.4 (Rust)</span>
         <button class="footer-toggle-log" id="btnToggleLog" style="display: none;">
           <span id="toggleLogArrow">▼</span>
-          <span id="toggleLogText">Tampilkan Log</span>
+          <span id="toggleLogText">Show Logs</span>
         </button>
       </div>
     </footer>
