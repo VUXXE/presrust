@@ -8,13 +8,15 @@ export struct LogItem {
 
 export component MainWindow inherits Window {
     title: "PrestaShop Portable";
-    min-width: 440px;
-    max-width: 520px;
-    preferred-width: 460px;
-    min-height: 290px;
-    preferred-height: show-log-drawer ? 580px : (show-settings ? 460px : 320px);
+    min-width: 480px;
+    max-width: 480px;
+    min-height: 380px;
+    max-height: 380px;
     background: #111216;
     default-font-family: "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif";
+
+    // Tab Index: 0 = Layanan, 1 = Log, 2 = Pengaturan
+    property <int> active-tab: 0;
 
     // Properties bound to Rust state
     in-out property <bool> is-running: false;
@@ -30,14 +32,14 @@ export component MainWindow inherits Window {
     in-out property <string> status-text: "Berhenti";
     in-out property <string> launcher-version: "v0.4";
 
-    // Log Drawer Properties
+    // Log Drawer Properties (retained for Rust bindings)
     in-out property <bool> show-log-drawer: false;
     in-out property <string> log-filter: "ALL";
     in-out property <bool> auto-scroll: true;
     in-out property <string> log-content: "";
-    in-out property <string> copy-log-text: "Salin Log";
+    in-out property <string> copy-log-text: "Salin";
 
-    // Settings Modal
+    // Settings Properties (retained for Rust bindings)
     in-out property <bool> show-settings: false;
     in-out property <string> cfg-web-port: "8080";
     in-out property <string> cfg-php-port: "9000";
@@ -56,39 +58,37 @@ export component MainWindow inherits Window {
     callback toggle-log-filter(string);
 
     VerticalLayout {
-        padding: 18px;
-        spacing: 14px;
+        padding: 16px;
+        spacing: 12px;
 
         // 1. Top Header: Title + Status Pill
         HorizontalLayout {
             alignment: space-between;
 
-            VerticalLayout {
-                spacing: 2px;
-                HorizontalLayout {
-                    spacing: 8px;
-                    Text {
-                        text: "PrestaShop";
-                        font-size: 18px;
-                        font-weight: 700;
-                        color: #ffffff;
-                    }
-                    Rectangle {
-                        background: #232630;
-                        border-radius: 4px;
-                        y: 2px;
-                        height: 20px;
-                        HorizontalLayout {
-                            padding-left: 6px;
-                            padding-right: 6px;
-                            Text {
-                                text: "Portable";
-                                font-size: 11px;
-                                font-weight: 600;
-                                color: #94a3b8;
-                                vertical-alignment: center;
-                                horizontal-alignment: center;
-                            }
+            HorizontalLayout {
+                spacing: 8px;
+                Text {
+                    text: "PrestaShop";
+                    font-size: 18px;
+                    font-weight: 700;
+                    color: #ffffff;
+                    vertical-alignment: center;
+                }
+                Rectangle {
+                    background: #232630;
+                    border-radius: 4px;
+                    y: 4px;
+                    height: 18px;
+                    HorizontalLayout {
+                        padding-left: 6px;
+                        padding-right: 6px;
+                        Text {
+                            text: "Portable";
+                            font-size: 10px;
+                            font-weight: 600;
+                            color: #94a3b8;
+                            vertical-alignment: center;
+                            horizontal-alignment: center;
                         }
                     }
                 }
@@ -125,43 +125,110 @@ export component MainWindow inherits Window {
             }
         }
 
-        // 2. Central Active Card (Clean & Compact)
+        // 2. Navigation Tab Bar (Segmented Control)
         Rectangle {
             background: #191b22;
-            border-radius: 10px;
+            border-radius: 7px;
+            height: 32px;
             border-width: 1px;
-            border-color: #272a34;
+            border-color: #242732;
 
-            VerticalLayout {
-                padding: 16px;
-                spacing: 12px;
+            HorizontalLayout {
+                padding: 2px;
+                spacing: 2px;
 
-                if root.is-running: VerticalLayout {
-                    spacing: 12px;
-                    // URL row
-                    HorizontalLayout {
+                // Tab 0: Layanan
+                Rectangle {
+                    background: root.active-tab == 0 ? #2563eb : transparent;
+                    border-radius: 5px;
+                    TouchArea {
+                        clicked => { root.active-tab = 0; }
+                    }
+                    Text {
+                        text: "⚡  Layanan";
+                        font-size: 12px;
+                        font-weight: root.active-tab == 0 ? 600 : 500;
+                        color: root.active-tab == 0 ? #ffffff : #94a3b8;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+
+                // Tab 1: Log
+                Rectangle {
+                    background: root.active-tab == 1 ? #2563eb : transparent;
+                    border-radius: 5px;
+                    TouchArea {
+                        clicked => { root.active-tab = 1; }
+                    }
+                    Text {
+                        text: "📜  Log Aktivitas";
+                        font-size: 12px;
+                        font-weight: root.active-tab == 1 ? 600 : 500;
+                        color: root.active-tab == 1 ? #ffffff : #94a3b8;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+
+                // Tab 2: Pengaturan
+                Rectangle {
+                    background: root.active-tab == 2 ? #2563eb : transparent;
+                    border-radius: 5px;
+                    TouchArea {
+                        clicked => { root.active-tab = 2; }
+                    }
+                    Text {
+                        text: "⚙  Pengaturan";
+                        font-size: 12px;
+                        font-weight: root.active-tab == 2 ? 600 : 500;
+                        color: root.active-tab == 2 ? #ffffff : #94a3b8;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+
+        // 3. Tab Contents (Strictly bounded height)
+
+        // Tab 0: Layanan View
+        if root.active-tab == 0: VerticalLayout {
+            spacing: 10px;
+
+            // Service URL & Action Card
+            Rectangle {
+                background: #191b22;
+                border-radius: 8px;
+                border-width: 1px;
+                border-color: #272a34;
+                height: 104px;
+
+                VerticalLayout {
+                    padding: 12px;
+                    spacing: 10px;
+
+                    if root.is-running: HorizontalLayout {
                         alignment: space-between;
                         Text {
-                            text: "URL Layanan";
-                            font-size: 13px;
+                            text: "Alamat Web:";
+                            font-size: 12px;
                             color: #94a3b8;
                             vertical-alignment: center;
                         }
                         Text {
                             text: root.host-url;
-                            font-size: 14px;
+                            font-size: 13px;
                             font-weight: 600;
                             color: #38bdf8;
                             vertical-alignment: center;
                         }
                     }
 
-                    // Open Action Buttons
-                    HorizontalLayout {
-                        spacing: 10px;
-                        height: 38px;
+                    if root.is-running: HorizontalLayout {
+                        spacing: 8px;
+                        height: 36px;
 
-                        // Primary Web Button
                         Rectangle {
                             background: #2563eb;
                             border-radius: 6px;
@@ -170,7 +237,7 @@ export component MainWindow inherits Window {
                             }
                             Text {
                                 text: root.is-setup-mode ? "🚀  Buka Setup Toko" : "🛍️  Buka Toko";
-                                font-size: 13px;
+                                font-size: 12px;
                                 font-weight: 600;
                                 color: #ffffff;
                                 horizontal-alignment: center;
@@ -178,9 +245,8 @@ export component MainWindow inherits Window {
                             }
                         }
 
-                        // Admin Button (if setup done)
                         if !root.is-setup-mode && root.admin-folder != "": Rectangle {
-                            width: 130px;
+                            width: 120px;
                             background: #4f46e5;
                             border-radius: 6px;
                             TouchArea {
@@ -188,7 +254,7 @@ export component MainWindow inherits Window {
                             }
                             Text {
                                 text: "🔐  Admin";
-                                font-size: 13px;
+                                font-size: 12px;
                                 font-weight: 600;
                                 color: #ffffff;
                                 horizontal-alignment: center;
@@ -196,219 +262,229 @@ export component MainWindow inherits Window {
                             }
                         }
                     }
-                }
 
-                if !root.is-running: VerticalLayout {
-                    alignment: center;
-                    height: 48px;
-                    Text {
-                        text: "Layanan dalam keadaan nonaktif";
-                        font-size: 13px;
-                        color: #64748b;
-                        horizontal-alignment: center;
+                    if !root.is-running: VerticalLayout {
+                        alignment: center;
+                        height: 80px;
+                        spacing: 4px;
+                        Text {
+                            text: "Layanan dalam keadaan nonaktif";
+                            font-size: 13px;
+                            font-weight: 600;
+                            color: #cbd5e1;
+                            horizontal-alignment: center;
+                        }
+                        Text {
+                            text: "Klik tombol di bawah untuk menyalakan Nginx, PHP, dan MariaDB";
+                            font-size: 11px;
+                            color: #64748b;
+                            horizontal-alignment: center;
+                        }
                     }
                 }
             }
-        }
 
-        // 3. Database Info Pill (Setup Mode only - Compact 1-line)
-        if root.is-running && root.is-setup-mode: Rectangle {
-            background: #172033;
-            border-radius: 6px;
-            border-width: 1px;
-            border-color: #1e3a8a;
-            height: 34px;
-
-            HorizontalLayout {
-                padding-left: 12px;
-                padding-right: 8px;
-                alignment: space-between;
+            // DB Info Pill (only when running & in setup mode)
+            if root.is-running && root.is-setup-mode: Rectangle {
+                background: #172033;
+                border-radius: 6px;
+                border-width: 1px;
+                border-color: #1e3a8a;
+                height: 32px;
 
                 HorizontalLayout {
-                    spacing: 12px;
-                    alignment: start;
-                    Text {
-                        text: "Database: " + root.db-name;
-                        font-size: 12px;
-                        font-weight: 600;
-                        color: #93c5fd;
-                        vertical-alignment: center;
-                    }
-                    Text {
-                        text: "User: " + root.db-user;
-                        font-size: 12px;
-                        color: #cbd5e1;
-                        vertical-alignment: center;
-                    }
-                    Text {
-                        text: "Port: " + root.db-port;
-                        font-size: 12px;
-                        color: #cbd5e1;
-                        vertical-alignment: center;
-                    }
-                }
+                    padding-left: 10px;
+                    padding-right: 6px;
+                    alignment: space-between;
 
-                Rectangle {
-                    background: #1d4ed8;
-                    border-radius: 4px;
-                    width: 58px;
-                    height: 24px;
-                    y: 5px;
-                    TouchArea {
-                        clicked => { root.copy-db-info(); }
+                    HorizontalLayout {
+                        spacing: 12px;
+                        Text {
+                            text: "Database: " + root.db-name;
+                            font-size: 11px;
+                            font-weight: 600;
+                            color: #93c5fd;
+                            vertical-alignment: center;
+                        }
+                        Text {
+                            text: "User: " + root.db-user;
+                            font-size: 11px;
+                            color: #cbd5e1;
+                            vertical-alignment: center;
+                        }
+                        Text {
+                            text: "Port: " + root.db-port;
+                            font-size: 11px;
+                            color: #cbd5e1;
+                            vertical-alignment: center;
+                        }
                     }
-                    Text {
-                        text: root.db-copy-text;
-                        font-size: 11px;
-                        font-weight: 600;
-                        color: #ffffff;
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
-                    }
-                }
-            }
-        }
 
-        // 4. Main Control Button (Start / Stop)
-        Rectangle {
-            height: 44px;
-            border-radius: 8px;
-            background: root.is-running ? #dc2626 : #059669;
-
-            TouchArea {
-                enabled: !root.is-busy;
-                clicked => {
-                    if (root.is-running) {
-                        root.stop-services();
-                    } else {
-                        root.start-services();
+                    Rectangle {
+                        background: #1d4ed8;
+                        border-radius: 4px;
+                        width: 52px;
+                        height: 22px;
+                        y: 5px;
+                        TouchArea {
+                            clicked => { root.copy-db-info(); }
+                        }
+                        Text {
+                            text: root.db-copy-text;
+                            font-size: 11px;
+                            font-weight: 600;
+                            color: #ffffff;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
                     }
                 }
             }
 
-            Text {
-                text: root.is-busy ? "Memproses..." : (root.is-running ? "■  Hentikan Layanan" : "▶  Jalankan Layanan");
-                font-size: 14px;
-                font-weight: 700;
-                color: #ffffff;
-                horizontal-alignment: center;
-                vertical-alignment: center;
-            }
-        }
+            // Main Action Button (Start / Stop)
+            Rectangle {
+                height: 44px;
+                border-radius: 8px;
+                background: root.is-running ? #dc2626 : #059669;
 
-        // 5. Settings Panel (Collapsible)
-        if root.show-settings: Rectangle {
-            background: #191b22;
-            border-radius: 8px;
-            border-width: 1px;
-            border-color: #333744;
-
-            VerticalLayout {
-                padding: 14px;
-                spacing: 10px;
+                TouchArea {
+                    enabled: !root.is-busy;
+                    clicked => {
+                        if (root.is-running) {
+                            root.stop-services();
+                        } else {
+                            root.start-services();
+                        }
+                    }
+                }
 
                 Text {
-                    text: "Pengaturan Port";
-                    font-size: 13px;
+                    text: root.is-busy ? "Memproses..." : (root.is-running ? "■  Hentikan Layanan" : "▶  Jalankan Layanan");
+                    font-size: 14px;
                     font-weight: 700;
-                    color: #e2e8f0;
+                    color: #ffffff;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
                 }
+            }
+        }
 
-                HorizontalLayout {
-                    spacing: 10px;
-                    Text { text: "Port Web:"; font-size: 12px; color: #94a3b8; vertical-alignment: center; width: 90px; }
-                    web-port-input := LineEdit { text: root.cfg-web-port; }
-                }
+        // Tab 1: Log View
+        if root.active-tab == 1: VerticalLayout {
+            spacing: 8px;
 
+            HorizontalLayout {
+                alignment: space-between;
                 HorizontalLayout {
-                    spacing: 10px;
-                    Text { text: "Port PHP:"; font-size: 12px; color: #94a3b8; vertical-alignment: center; width: 90px; }
-                    php-port-input := LineEdit { text: root.cfg-php-port; }
-                }
-
-                HorizontalLayout {
-                    spacing: 10px;
-                    Text { text: "Port MariaDB:"; font-size: 12px; color: #94a3b8; vertical-alignment: center; width: 90px; }
-                    db-port-input := LineEdit { text: root.cfg-db-port; }
-                }
-
-                HorizontalLayout {
-                    spacing: 8px;
-                    alignment: end;
+                    spacing: 4px;
                     Button {
-                        text: "Batal";
-                        clicked => { root.show-settings = false; }
+                        text: root.log-filter == "ALL" ? "[Semua]" : "Semua";
+                        clicked => { root.toggle-log-filter("ALL"); }
                     }
                     Button {
-                        text: "Simpan";
-                        clicked => {
-                            root.save-settings(web-port-input.text, php-port-input.text, db-port-input.text);
-                            root.show-settings = false;
+                        text: root.log-filter == "NGINX" ? "[Nginx]" : "Nginx";
+                        clicked => { root.toggle-log-filter("NGINX"); }
+                    }
+                    Button {
+                        text: root.log-filter == "PHP" ? "[PHP]" : "PHP";
+                        clicked => { root.toggle-log-filter("PHP"); }
+                    }
+                    Button {
+                        text: root.log-filter == "DB" ? "[DB]" : "DB";
+                        clicked => { root.toggle-log-filter("DB"); }
+                    }
+                }
+                HorizontalLayout {
+                    spacing: 4px;
+                    Button {
+                        text: root.copy-log-text;
+                        clicked => { root.copy-logs(); }
+                    }
+                    Button {
+                        text: "Bersihkan";
+                        clicked => { root.clear-logs(); }
+                    }
+                    Button {
+                        text: "📁 Folder";
+                        clicked => { root.open-logs-folder(); }
+                    }
+                }
+            }
+
+            ScrollView {
+                height: 195px;
+                Rectangle {
+                    background: #090a0d;
+                    border-radius: 6px;
+                    border-width: 1px;
+                    border-color: #1f222a;
+                    min-height: 195px;
+                    VerticalLayout {
+                        padding: 8px;
+                        Text {
+                            text: root.log-content != "" ? root.log-content : "Menunggu log aktivitas...";
+                            font-size: 11px;
+                            font-family: "monospace";
+                            color: #cbd5e1;
+                            wrap: word-wrap;
                         }
                     }
                 }
             }
         }
 
-        // 6. Log Drawer Panel (Collapsible)
-        if root.show-log-drawer: Rectangle {
-            background: #14151a;
-            border-radius: 8px;
-            border-width: 1px;
-            border-color: #272a34;
-            height: 220px;
+        // Tab 2: Settings View
+        if root.active-tab == 2: VerticalLayout {
+            spacing: 10px;
 
-            VerticalLayout {
-                padding: 10px;
-                spacing: 8px;
+            Rectangle {
+                background: #191b22;
+                border-radius: 8px;
+                border-width: 1px;
+                border-color: #272a34;
+                height: 232px;
 
-                HorizontalLayout {
-                    alignment: space-between;
-                    HorizontalLayout {
-                        spacing: 6px;
-                        Button {
-                            text: root.log-filter == "ALL" ? "[Semua]" : "Semua";
-                            clicked => { root.toggle-log-filter("ALL"); }
-                        }
-                        Button {
-                            text: root.log-filter == "NGINX" ? "[Nginx]" : "Nginx";
-                            clicked => { root.toggle-log-filter("NGINX"); }
-                        }
-                        Button {
-                            text: root.log-filter == "PHP" ? "[PHP]" : "PHP";
-                            clicked => { root.toggle-log-filter("PHP"); }
-                        }
-                        Button {
-                            text: root.log-filter == "DB" ? "[DB]" : "DB";
-                            clicked => { root.toggle-log-filter("DB"); }
-                        }
+                VerticalLayout {
+                    padding: 14px;
+                    spacing: 10px;
+
+                    Text {
+                        text: "Konfigurasi Port Jaringan";
+                        font-size: 13px;
+                        font-weight: 700;
+                        color: #ffffff;
                     }
-                    HorizontalLayout {
-                        spacing: 6px;
-                        Button {
-                            text: root.copy-log-text;
-                            clicked => { root.copy-logs(); }
-                        }
-                        Button {
-                            text: "Bersihkan";
-                            clicked => { root.clear-logs(); }
-                        }
-                    }
-                }
 
-                ScrollView {
-                    Rectangle {
-                        background: #090a0d;
-                        border-radius: 4px;
-                        min-height: 150px;
-                        VerticalLayout {
-                            padding: 8px;
-                            Text {
-                                text: root.log-content != "" ? root.log-content : "Menunggu log aktivitas...";
-                                font-size: 11px;
-                                font-family: "monospace";
-                                color: #cbd5e1;
-                                wrap: word-wrap;
+                    HorizontalLayout {
+                        spacing: 10px;
+                        Text { text: "Port Web (Nginx):"; font-size: 12px; color: #94a3b8; vertical-alignment: center; width: 140px; }
+                        web-port-input := LineEdit { text: root.cfg-web-port; }
+                    }
+
+                    HorizontalLayout {
+                        spacing: 10px;
+                        Text { text: "Port PHP (FastCGI):"; font-size: 12px; color: #94a3b8; vertical-alignment: center; width: 140px; }
+                        php-port-input := LineEdit { text: root.cfg-php-port; }
+                    }
+
+                    HorizontalLayout {
+                        spacing: 10px;
+                        Text { text: "Port Database (MariaDB):"; font-size: 12px; color: #94a3b8; vertical-alignment: center; width: 140px; }
+                        db-port-input := LineEdit { text: root.cfg-db-port; }
+                    }
+
+                    HorizontalLayout {
+                        spacing: 8px;
+                        alignment: end;
+                        Button {
+                            text: "Batal";
+                            clicked => { root.active-tab = 0; }
+                        }
+                        Button {
+                            text: "Simpan Port";
+                            clicked => {
+                                root.save-settings(web-port-input.text, php-port-input.text, db-port-input.text);
+                                root.active-tab = 0;
                             }
                         }
                     }
@@ -416,48 +492,20 @@ export component MainWindow inherits Window {
             }
         }
 
-        // 7. Minimal Footer
+        // 4. Subtle Bottom Status
         HorizontalLayout {
             alignment: space-between;
-            HorizontalLayout {
-                spacing: 12px;
-                Rectangle {
-                    background: transparent;
-                    TouchArea {
-                        clicked => { root.show-settings = !root.show-settings; }
-                    }
-                    Text {
-                        text: root.show-settings ? "Tutup Pengaturan" : "⚙ Pengaturan";
-                        font-size: 12px;
-                        color: #94a3b8;
-                    }
-                }
-                if root.show-log-drawer: Rectangle {
-                    background: transparent;
-                    TouchArea {
-                        clicked => { root.open-logs-folder(); }
-                    }
-                    Text {
-                        text: "📁 Folder Log";
-                        font-size: 12px;
-                        color: #94a3b8;
-                    }
-                }
+            Text {
+                text: "PrestaShop 9.0 • MariaDB 11.4 • PHP 8.4";
+                font-size: 11px;
+                color: #475569;
+                vertical-alignment: center;
             }
-
-            HorizontalLayout {
-                spacing: 12px;
-                Rectangle {
-                    background: transparent;
-                    TouchArea {
-                        clicked => { root.show-log-drawer = !root.show-log-drawer; }
-                    }
-                    Text {
-                        text: root.show-log-drawer ? "▲ Sembunyikan Log" : "▼ Log Aktivitas";
-                        font-size: 12px;
-                        color: #94a3b8;
-                    }
-                }
+            Text {
+                text: root.launcher-version;
+                font-size: 11px;
+                color: #475569;
+                vertical-alignment: center;
             }
         }
     }
