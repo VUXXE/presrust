@@ -115,7 +115,12 @@ echo "--> Creating final archive: ${DIST_DIR}/${ARCHIVE_NAME}.${EXT}"
 pushd "${ROOT_DIR}/build/stage" > /dev/null
 case "${EXT}" in
     zip)
-        zip -r -q "${DIST_DIR}/${ARCHIVE_NAME}.zip" "${ARCHIVE_NAME}"
+        if command -v 7z >/dev/null 2>&1; then
+            # Windows runners lack zip(1); 7-Zip is preinstalled there.
+            7z a -tzip "${DIST_DIR}/${ARCHIVE_NAME}.zip" "${ARCHIVE_NAME}" > /dev/null
+        else
+            zip -r -q "${DIST_DIR}/${ARCHIVE_NAME}.zip" "${ARCHIVE_NAME}"
+        fi
         ;;
     tar.xz)
         tar -cJf "${DIST_DIR}/${ARCHIVE_NAME}.tar.xz" "${ARCHIVE_NAME}"
