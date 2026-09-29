@@ -27,6 +27,8 @@ mkdir -p "${ROOT_DIR}/tmp/uploads"
 mkdir -p "${ROOT_DIR}/data/mariadb"
 mkdir -p "${ROOT_DIR}/prestashop/var/cache"
 mkdir -p "${ROOT_DIR}/prestashop/var/logs"
+mkdir -p "${ROOT_DIR}/prestashop/download"
+touch "${ROOT_DIR}/prestashop/download/index.php"
 
 # 1. PHP Runtime
 if [ -f "${RUNTIME_DIR}/php/php-fpm" ] || [ -f "${RUNTIME_DIR}/php/php-cgi" ]; then

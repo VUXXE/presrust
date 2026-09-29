@@ -83,6 +83,12 @@ impl EnvPaths {
         if app_dir.exists() {
             let _ = fs::create_dir_all(app_dir.join("var/cache"));
             let _ = fs::create_dir_all(app_dir.join("var/logs"));
+            let download_dir = app_dir.join("download");
+            let _ = fs::create_dir_all(&download_dir);
+            let download_index = download_dir.join("index.php");
+            if !download_index.exists() {
+                let _ = fs::write(&download_index, "<?php\n");
+            }
         }
 
         Ok(Self {
