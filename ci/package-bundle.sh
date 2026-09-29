@@ -23,28 +23,42 @@ mkdir -p "${STAGE_DIR}" "${DIST_DIR}"
 # 1. Launcher Binary
 # NOTE: repo root is the Cargo workspace root, so `cargo build` (even when
 # invoked from launcher/) outputs to <root>/target. Check that first.
+# CI split-job handoff: $LAUNCHER_BIN (absolute or repo-relative) wins.
 LAUNCHER_NAME="PrestaShopLauncher"
 if [[ "${TARGET}" == windows* ]]; then
     LAUNCHER_NAME="PrestaShopLauncher.exe"
+fi
+SRC_BIN=""
+if [ -n "${LAUNCHER_BIN:-}" ]; then
+    case "${LAUNCHER_BIN}" in
+        /*) SRC_BIN="${LAUNCHER_BIN}" ;;
+        *) SRC_BIN="${ROOT_DIR}/${LAUNCHER_BIN}" ;;
+    esac
+fi
+if [ -z "${SRC_BIN}" ] || [ ! -f "${SRC_BIN}" ]; then
+    if [ -n "${LAUNCHER_BIN:-}" ]; then
+        echo "Warning: LAUNCHER_BIN=${LAUNCHER_BIN} not found, falling back to target dirs"
+    fi
     SRC_BIN=""
-    for candidate in \
-        "${ROOT_DIR}/target/release/prestashop-launcher.exe" \
-        "${ROOT_DIR}/launcher/target/release/prestashop-launcher.exe" \
-        "${ROOT_DIR}/target/${TARGET}/release/prestashop-launcher.exe" \
-        "${ROOT_DIR}/launcher/target/${TARGET}/release/prestashop-launcher.exe"
-    do
-        if [ -f "${candidate}" ]; then SRC_BIN="${candidate}"; break; fi
-    done
-else
-    SRC_BIN=""
-    for candidate in \
-        "${ROOT_DIR}/target/release/prestashop-launcher" \
-        "${ROOT_DIR}/launcher/target/release/prestashop-launcher" \
-        "${ROOT_DIR}/target/${TARGET}/release/prestashop-launcher" \
-        "${ROOT_DIR}/launcher/target/${TARGET}/release/prestashop-launcher"
-    do
-        if [ -f "${candidate}" ]; then SRC_BIN="${candidate}"; break; fi
-    done
+    if [[ "${TARGET}" == windows* ]]; then
+        for candidate in \
+            "${ROOT_DIR}/target/release/prestashop-launcher.exe" \
+            "${ROOT_DIR}/launcher/target/release/prestashop-launcher.exe" \
+            "${ROOT_DIR}/target/${TARGET}/release/prestashop-launcher.exe" \
+            "${ROOT_DIR}/launcher/target/${TARGET}/release/prestashop-launcher.exe"
+        do
+            if [ -f "${candidate}" ]; then SRC_BIN="${candidate}"; break; fi
+        done
+    else
+        for candidate in \
+            "${ROOT_DIR}/target/release/prestashop-launcher" \
+            "${ROOT_DIR}/launcher/target/release/prestashop-launcher" \
+            "${ROOT_DIR}/target/${TARGET}/release/prestashop-launcher" \
+            "${ROOT_DIR}/launcher/target/${TARGET}/release/prestashop-launcher"
+        do
+            if [ -f "${candidate}" ]; then SRC_BIN="${candidate}"; break; fi
+        done
+    fi
 fi
 
 if [ -n "${SRC_BIN}" ]; then
