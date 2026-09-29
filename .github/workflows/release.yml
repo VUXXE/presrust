@@ -13,7 +13,9 @@ jobs:
       matrix:
         include:
           - { target: windows-x86_64, os: windows-2025, ext: zip }
-          - { target: linux-x86_64,   os: ubuntu-24.04, ext: tar.xz }
+          # TODO(linux): re-enable after fixing spc pkg-config source
+          # build failure (make -j4 fails on ubuntu-24.04 runner).
+          # - { target: linux-x86_64,   os: ubuntu-24.04, ext: tar.xz }
           - { target: macos-arm64,    os: macos-15,       ext: tar.xz }
           - { target: macos-x86_64,   os: macos-15-intel, ext: tar.xz }
     runs-on: ${{ matrix.os }}
