@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+TARGET="${1:-linux-x86_64}"
+EXT="${2:-tar.xz}"
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+if [ -f "${ROOT_DIR}/versions.env" ]; then
+    # shellcheck disable=SC1091
+    source "${ROOT_DIR}/versions.env"
+fi
+
+PRESTASHOP_VERSION="${PRESTASHOP_VERSION:-9.0.3}"
+STAGE_DIR="${ROOT_DIR}/build/stage/prestashop-portable-${TARGET}"
+DIST_DIR="${ROOT_DIR}/dist"
+
+echo "==> Packaging PrestaShop Portable bundle for ${TARGET} (${EXT})..."
+rm -rf "${STAGE_DIR}"
+mkdir -p "${STAGE_DIR}" "${DIST_DIR}"
+
+# 1. Launcher Binary
+LAUNCHER_NAME="PrestaShopLauncher"
+if [[ "${TARGET}" == windows* ]]; then
+    LAUNCHER_NAME="PrestaShopLauncher.exe"
+    SRC_BIN="${ROOT_DIR}/launcher/target/release/prestashop-launcher.exe"
+    if [ ! -f "${SRC_BIN}" ]; then
+        SRC_BIN="${ROOT_DIR}/launcher/target/${TARGET}/release/prestashop-launcher.exe"
+    fi
+else
+    SRC_BIN="${ROOT_DIR}/launcher/target/release/prestashop-launcher"
+    if [ ! -f "${SRC_BIN}" ]; then
+        SRC_BIN="${ROOT_DIR}/launcher/target/${TARGET}/release/prestashop-launcher"
+    fi
+fi
+
+if [ -f "${SRC_BIN}" ]; then
+    cp "${SRC_BIN}" "${STAGE_DIR}/${LAUNCHER_NAME}"
+    chmod +x "${STAGE_DIR}/${LAUNCHER_NAME}"
+else
+    echo "Warning: Launcher binary not found at ${SRC_BIN}, creating placeholder"
+    touch "${STAGE_DIR}/${LAUNCHER_NAME}"
+fi
+
+# 2. Config templates
+mkdir -p "${STAGE_DIR}/config"
+cp -r "${ROOT_DIR}/config"/* "${STAGE_DIR}/config/"
+
+# 3. Runtime Binaries
+mkdir -p "${STAGE_DIR}/runtime/${TARGET}"
+if [ -d "${ROOT_DIR}/build/runtime/${TARGET}" ]; then
+    cp -r "${ROOT_DIR}/build/runtime/${TARGET}"/* "${STAGE_DIR}/runtime/${TARGET}/"
+elif [ -d "${ROOT_DIR}/runtime/${TARGET}" ]; then
+    cp -r "${ROOT_DIR}/runtime/${TARGET}"/* "${STAGE_DIR}/runtime/${TARGET}/"
+fi
+
+# 4. PrestaShop Core into app/
+mkdir -p "${STAGE_DIR}/app"
+if [ -d "${ROOT_DIR}/prestashop" ] && [ -f "${ROOT_DIR}/prestashop/autoload.php" ]; then
+    echo "--> Copying PrestaShop from local prestashop/ directory..."
+    cp -r "${ROOT_DIR}/prestashop"/* "${STAGE_DIR}/app/"
+elif [ -d "${ROOT_DIR}/app" ] && [ -f "${ROOT_DIR}/app/autoload.php" ]; then
+    echo "--> Copying PrestaShop from local app/ directory..."
+    cp -r "${ROOT_DIR}/app"/* "${STAGE_DIR}/app/"
+else
+    echo "--> Downloading official PrestaShop ${PRESTASHOP_VERSION} release..."
+    PS_URL="https://github.com/PrestaShop/PrestaShop/releases/download/${PRESTASHOP_VERSION}/prestashop_${PRESTASHOP_VERSION}.zip"
+    TEMP_PS_ZIP="$(mktemp --suffix=.zip 2>/dev/null || mktemp).zip"
+    curl -fsSL -o "${TEMP_PS_ZIP}" "${PS_URL}"
+    
+    EXTRACT_TMP="$(mktemp -d)"
+    unzip -q "${TEMP_PS_ZIP}" -d "${EXTRACT_TMP}"
+    # PrestaShop zip often contains prestashop.zip inside it
+    if [ -f "${EXTRACT_TMP}/prestashop.zip" ]; then
+        unzip -q "${EXTRACT_TMP}/prestashop.zip" -d "${STAGE_DIR}/app"
+    else
+        cp -r "${EXTRACT_TMP}"/* "${STAGE_DIR}/app/"
+    fi
+    rm -rf "${EXTRACT_TMP}" "${TEMP_PS_ZIP}"
+fi
+
+# 5. Data, Logs, Tmp empty skeleton
+mkdir -p "${STAGE_DIR}/data/mariadb"
+mkdir -p "${STAGE_DIR}/tmp/sessions"
+mkdir -p "${STAGE_DIR}/tmp/uploads"
+mkdir -p "${STAGE_DIR}/logs"
+
+# Touch .gitkeep
+touch "${STAGE_DIR}/data/mariadb/.gitkeep"
+touch "${STAGE_DIR}/tmp/sessions/.gitkeep"
+touch "${STAGE_DIR}/tmp/uploads/.gitkeep"
+touch "${STAGE_DIR}/logs/.gitkeep"
+
+# 6. Archive Creation
+ARCHIVE_NAME="prestashop-portable-${TARGET}"
+echo "--> Creating final archive: ${DIST_DIR}/${ARCHIVE_NAME}.${EXT}"
+
+pushd "${ROOT_DIR}/build/stage" > /dev/null
+case "${EXT}" in
+    zip)
+        zip -r -q "${DIST_DIR}/${ARCHIVE_NAME}.zip" "${ARCHIVE_NAME}"
+        ;;
+    tar.xz)
+        tar -cJf "${DIST_DIR}/${ARCHIVE_NAME}.tar.xz" "${ARCHIVE_NAME}"
+        ;;
+    tar.gz)
+        tar -czf "${DIST_DIR}/${ARCHIVE_NAME}.tar.gz" "${ARCHIVE_NAME}"
+        ;;
+    *)
+        echo "Error: Unknown extension ${EXT}" >&2
+        exit 1
+        ;;
+esac
+popd > /dev/null
+
+echo "==> Package bundle created: ${DIST_DIR}/${ARCHIVE_NAME}.${EXT}"

@@ -1,0 +1,105 @@
+[PHP]
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; PrestaShop Portable - PHP 8.4 Configuration ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+engine = On
+short_open_tag = Off
+precision = 14
+output_buffering = 4096
+zlib.output_compression = Off
+implicit_flush = Off
+unserialize_callback_func =
+serialize_precision = -1
+disable_functions =
+disable_classes =
+zend.enable_gc = On
+expose_php = Off
+
+;; Resource Limits
+max_execution_time = 300
+max_input_time = 300
+max_input_vars = 5000
+memory_limit = 512M
+
+;; Error handling and logging
+error_reporting = E_ALL & ~E_DEPRECATED & ~E_STRICT
+display_errors = Off
+display_startup_errors = Off
+log_errors = On
+log_errors_max_len = 1024
+ignore_repeated_errors = Off
+ignore_repeated_source = Off
+report_memleaks = On
+error_log = "{{ROOT}}/logs/php_errors.log"
+
+;; Data Handling
+variables_order = "GPCS"
+request_order = "GP"
+register_argc_argv = Off
+auto_globals_jit = On
+post_max_size = 64M
+default_mimetype = "text/html"
+default_charset = "UTF-8"
+
+;; File Uploads
+file_uploads = On
+upload_tmp_dir = "{{ROOT}}/tmp/uploads"
+upload_max_filesize = 64M
+max_file_uploads = 20
+
+;; Fopen wrappers
+allow_url_fopen = On
+allow_url_include = Off
+default_socket_timeout = 60
+
+;; Date & Timezone
+[Date]
+date.timezone = UTC
+
+;; Session
+[Session]
+session.save_handler = files
+session.save_path = "{{ROOT}}/tmp/sessions"
+session.use_strict_mode = 1
+session.use_cookies = 1
+session.use_only_cookies = 1
+session.name = PHPSESSID
+session.auto_start = 0
+session.cookie_lifetime = 0
+session.cookie_path = /
+session.cookie_domain =
+session.cookie_httponly = 1
+session.cookie_samesite = "Lax"
+session.serialize_handler = php
+session.gc_probability = 1
+session.gc_divisor = 100
+session.gc_maxlifetime = 14400
+session.cache_limiter = nocache
+session.cache_expire = 180
+session.use_trans_sid = 0
+session.sid_length = 32
+session.trans_sid_tags = "a=href,area=href,frame=src,form="
+session.sid_bits_per_character = 5
+
+;; OPcache
+[opcache]
+opcache.enable = 1
+opcache.enable_cli = 0
+opcache.memory_consumption = 128
+opcache.interned_strings_buffer = 16
+opcache.max_accelerated_files = 10000
+opcache.max_wasted_percentage = 5
+opcache.use_cwd = 1
+opcache.validate_timestamps = 1
+opcache.revalidate_freq = 2
+opcache.save_comments = 1
+opcache.enable_file_override = 0
+
+;; cURL CA bundle if needed
+[curl]
+; curl.cainfo = "{{ROOT}}/config/cacert.pem"
+
+;; OpenSSL
+[openssl]
+; openssl.cafile = "{{ROOT}}/config/cacert.pem"

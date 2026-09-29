@@ -1,0 +1,32 @@
+# Rust build artifacts
+target/
+launcher/target/
+Cargo.lock.bak
+**/*.rs.bk
+
+# PrestaShop local code / app
+prestashop/
+app/
+
+# Portable Runtime Binaries
+runtime/
+build/
+dist/
+release-assets/
+
+# Mutable instance data
+data/
+logs/
+tmp/
+*.pid
+
+# Active configuration generated at runtime
+config/php.ini
+
+# OS & Editor files
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.idea/
+.vscode/

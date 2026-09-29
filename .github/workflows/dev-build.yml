@@ -1,0 +1,55 @@
+name: dev-build
+
+on:
+  push:
+    branches: [ "main", "dev" ]
+  pull_request:
+    branches: [ "main", "dev" ]
+
+jobs:
+  validate-rust:
+    name: Lint & Test Rust Launcher
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies for GUI (Slint/X11/Wayland)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfontconfig1-dev libx11-dev libxext-dev libxfixes-dev libxinerama-dev libxrandr-dev libxcursor-dev
+
+      - name: Setup Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Cargo Dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "launcher -> target"
+
+      - name: Check Formatting
+        run: |
+          cd launcher
+          cargo fmt --all -- --check
+
+      - name: Run Clippy Linter
+        run: |
+          cd launcher
+          cargo clippy --all-targets -- -D warnings
+
+      - name: Run Unit Tests
+        run: |
+          cd launcher
+          cargo test --verbose
+
+  validate-scripts:
+    name: Lint Shell Scripts
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check bash syntax
+        run: |
+          for f in ci/*.sh scripts/*.sh; do
+            [ -f "$f" ] && bash -n "$f"
+          done
