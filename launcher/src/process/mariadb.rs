@@ -132,15 +132,6 @@ impl MariaDbService {
             cmd.creation_flags(0x08000000);
         }
 
-        #[cfg(target_os = "linux")]
-        unsafe {
-            use std::os::unix::process::CommandExt;
-            cmd.pre_exec(|| {
-                libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGTERM);
-                Ok(())
-            });
-        }
-
         let child = cmd
             .spawn()
             .with_context(|| format!("Failed to spawn MariaDB process {:?}", bin))?;

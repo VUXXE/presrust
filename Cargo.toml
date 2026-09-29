@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "launcher",
+]
+default-members = ["launcher"]
+resolver = "2"

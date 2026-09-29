@@ -142,4 +142,43 @@ mod tests {
         let mut pm = ProcessManager::new(&config);
         assert!(!pm.is_running());
     }
+
+    #[test]
+    fn test_services_stay_running_in_thread() {
+        let paths = match EnvPaths::resolve() {
+            Ok(p) => p,
+            Err(_) => return,
+        };
+        // Skip if runtime binaries are not present (e.g. CI without bundle)
+        if NginxService::find_binary(&paths).is_err()
+            || PhpService::find_binary(&paths).is_err()
+            || MariaDbService::find_binary(&paths).is_err()
+        {
+            eprintln!("Skipping test: binaries not present");
+            return;
+        }
+
+        let config = AppConfig::default();
+        let pm = std::sync::Arc::new(std::sync::Mutex::new(ProcessManager::new(&config)));
+
+        // Spawn in worker thread exactly like main.rs
+        let pm_clone = pm.clone();
+        let handle = std::thread::spawn(move || {
+            let mut manager = pm_clone.lock().unwrap();
+            manager.start_all(&paths).expect("Failed to start services");
+        });
+        handle.join().unwrap(); // worker thread exits here!
+
+        // Wait 1.5 seconds (under old PR_SET_PDEATHSIG, services died immediately)
+        std::thread::sleep(std::time::Duration::from_millis(1500));
+
+        let mut manager = pm.lock().unwrap();
+        let running = manager.is_running();
+        assert!(
+            running,
+            "Services should remain running after spawn thread exits!"
+        );
+
+        manager.stop_all().expect("Failed to stop services");
+    }
 }
