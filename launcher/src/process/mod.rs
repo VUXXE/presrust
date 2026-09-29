@@ -163,9 +163,12 @@ mod tests {
 
         // Spawn in worker thread exactly like main.rs
         let pm_clone = pm.clone();
+        let paths_clone = paths.clone();
         let handle = std::thread::spawn(move || {
             let mut manager = pm_clone.lock().unwrap();
-            manager.start_all(&paths).expect("Failed to start services");
+            manager
+                .start_all(&paths_clone)
+                .expect("Failed to start services");
         });
         handle.join().unwrap(); // worker thread exits here!
 
@@ -215,6 +218,26 @@ mod tests {
                 "System compatibility step must not return 500 error! Response snippet: {}",
                 &response[..response.len().min(500)]
             );
+        }
+
+        // Verify required theme assets for installation exist
+        let app_dir = &paths.app_dir;
+        if app_dir.exists() {
+            let classic_theme = app_dir.join("themes/classic");
+            if classic_theme.exists() {
+                assert!(
+                    classic_theme.join("assets/js/theme.js").exists(),
+                    "classic theme must have assets/js/theme.js"
+                );
+                assert!(
+                    classic_theme.join("assets/css/theme.css").exists(),
+                    "classic theme must have assets/css/theme.css"
+                );
+                assert!(
+                    classic_theme.join("config/theme.yml").exists(),
+                    "classic theme must have config/theme.yml"
+                );
+            }
         }
 
         manager.stop_all().expect("Failed to stop services");

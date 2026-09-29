@@ -20,6 +20,7 @@ impl Default for AppConfig {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct EnvPaths {
     pub root_dir: PathBuf,
     pub app_dir: PathBuf,
