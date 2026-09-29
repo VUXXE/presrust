@@ -69,6 +69,8 @@ http {
         }
 
         # FastCGI pass to PHP-CGI
+        # NOTE: this regex location must stay BEFORE the back-office
+        # location below, so *.php files are never served as static text.
         location ~ [^/]\.php(/|$) {
             fastcgi_split_path_info ^(.+?\.php)(/.*)$;
             if (!-f $document_root$fastcgi_script_name) {
@@ -83,6 +85,20 @@ http {
 
             fastcgi_read_timeout 300;
             fastcgi_pass 127.0.0.1:{{PHP_PORT}};
+        }
+
+        # PrestaShop 9 back office uses Symfony pretty URLs without .php
+        # (e.g. /admin_abc123/login). Without this, such requests fall
+        # through location / into the front-office /index.php (bug: admin
+        # login opened the shop instead). Generic regex covers any
+        # current or future admin directory name, no restart needed
+        # after the installer renames admin/. Also covers /admin-api/.
+        location ~ ^/admin[^/]*/ {
+            try_files $uri $uri/ @prestashop_bo;
+        }
+
+        location @prestashop_bo {
+            rewrite ^/(admin[^/]*)(/.*)?$ /$1/index.php$2 last;
         }
     }
 }
