@@ -6,9 +6,8 @@ authors = ["PrestaShop Portable Contributors"]
 description = "Cross-platform launcher for PrestaShop Portable"
 
 [dependencies]
-slint = "1.18.1"
+tauri = { version = "2", features = [] }
 open = "5.4"
-arboard = "3.6"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 anyhow = "1.0"
@@ -23,4 +22,4 @@ windows-sys = { version = "0.59", features = ["Win32_System_Threading", "Win32_F
 libc = "0.2"
 
 [build-dependencies]
-slint-build = "1.18.1"
+tauri-build = { version = "2", features = [] }

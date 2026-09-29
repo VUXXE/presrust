@@ -12,6 +12,7 @@ use std::time::Duration;
 pub struct LogEntry {
     #[allow(dead_code)]
     pub timestamp: String,
+    #[allow(dead_code)]
     pub source: String, // "NGINX", "PHP", "DB", "SYSTEM"
     pub formatted_line: String,
 }

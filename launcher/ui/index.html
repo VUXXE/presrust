@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PrestaShop Portable</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="window-container">
+    <!-- 1. Custom Titlebar (Frameless Drag Region) -->
+    <header class="titlebar" data-tauri-drag-region>
+      <div class="titlebar-brand" data-tauri-drag-region>
+        <div class="mascot-avatar">
+          <img src="preston.png" alt="PrestaShop" />
+        </div>
+        <span class="app-title" id="appTitle">PrestaShop Portable</span>
+      </div>
+      <div class="titlebar-controls">
+        <button class="win-btn minimize" id="btnMinimize" title="Minimize">—</button>
+        <button class="win-btn close" id="btnClose" title="Tutup">✕</button>
+      </div>
+    </header>
+
+    <!-- 2. Main Content Area -->
+    <main class="content-area">
+      <!-- A. Normal Dashboard (States 5.1, 5.2, 5.3) -->
+      <section class="view-panel" id="dashboardView">
+        <!-- Info Card (Status, Host, Admin) -->
+        <div class="card info-card">
+          <div class="info-row">
+            <span class="info-label">Status</span>
+            <span class="info-colon">:</span>
+            <div class="status-indicator">
+              <span class="status-dot" id="statusDot"></span>
+              <span class="status-text" id="statusText">Berhenti</span>
+            </div>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Host</span>
+            <span class="info-colon">:</span>
+            <span class="info-value" id="hostValue">127.0.0.1:8080</span>
+          </div>
+          <div class="info-row" id="adminRow" style="display: none;">
+            <span class="info-label">Admin</span>
+            <span class="info-colon">:</span>
+            <div class="admin-value">
+              <span class="admin-folder" id="adminFolderText">/admin/</span>
+              <span class="detected-badge">(terdeteksi)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- State 5.2: DB Credentials Card (Active during Setup) -->
+        <div class="card db-card" id="dbCard" style="display: none;">
+          <div class="db-card-header">
+            <div class="db-card-title">
+              <img src="icons/database-blue.svg" class="icon-inline" alt="" />
+              <span>Kredensial Database untuk Setup</span>
+            </div>
+            <button class="btn-copy-db" id="btnCopyDb">
+              <img src="icons/copy-blue.svg" class="icon-sm" alt="" />
+              <span id="copyDbText">Salin Info</span>
+            </button>
+          </div>
+          <div class="db-grid">
+            <div class="db-col">
+              <div class="db-item"><span class="k">Host</span><span class="v">: <b id="dbHost">127.0.0.1</b></span></div>
+              <div class="db-item"><span class="k">User</span><span class="v">: <b id="dbUser">root</b></span></div>
+              <div class="db-item"><span class="k">DB</span><span class="v">: <b id="dbName">prestashop</b></span></div>
+            </div>
+            <div class="db-col">
+              <div class="db-item"><span class="k">Port</span><span class="v">: <b id="dbPort">3306</b></span></div>
+              <div class="db-item"><span class="k">Pass</span><span class="v muted">: (kosong)</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Big Primary Action Button (Start / Stop) -->
+        <button class="btn-primary-action" id="btnMainAction">
+          <img src="icons/play-white.svg" class="icon-action" id="mainActionIcon" alt="" />
+          <span id="mainActionText">Jalankan Layanan</span>
+        </button>
+
+        <!-- Secondary Buttons (Buka Toko / Admin) -->
+        <div class="secondary-actions">
+          <button class="btn-secondary disabled" id="btnOpenShop" disabled>
+            <img src="icons/store-gray.svg" class="icon-btn" id="shopBtnIcon" alt="" />
+            <span id="shopBtnText">Buka Toko (mati)</span>
+          </button>
+          <button class="btn-secondary disabled" id="btnOpenAdmin" disabled>
+            <img src="icons/user-gray.svg" class="icon-btn" id="adminBtnIcon" alt="" />
+            <span id="adminBtnText">Login Admin (mati)</span>
+          </button>
+        </div>
+
+        <!-- Footnote for State 5.2 -->
+        <div class="footnote-info" id="setupFootnote" style="display: none;">
+          <span class="badge-info">i</span>
+          <span>Selesaikan wizard setup untuk login admin</span>
+        </div>
+      </section>
+
+      <!-- B. Log Monitor View (State 5.4) -->
+      <section class="view-panel" id="logMonitorView" style="display: none;">
+        <!-- Compact Summary Header -->
+        <div class="log-summary-bar">
+          <div class="log-summary-left">
+            <div class="status-indicator">
+              <span class="status-dot green"></span>
+              <span class="status-text green">Berjalan</span>
+            </div>
+            <div class="host-compact">
+              <span class="k">Host:</span>
+              <span class="v" id="logHostValue">http://127.0.0.1:8080</span>
+            </div>
+          </div>
+          <div class="log-summary-right">
+            <button class="btn-sm btn-stop" id="btnLogStop">
+              <img src="icons/stop-white.svg" class="icon-xs" alt="" />
+              <span>Hentikan Layanan</span>
+            </button>
+            <button class="btn-sm btn-outline" id="btnLogShop">
+              <img src="icons/store-blue.svg" class="icon-xs" alt="" />
+              <span>Buka Toko</span>
+            </button>
+            <button class="btn-sm btn-outline" id="btnLogAdmin">
+              <img src="icons/user-blue.svg" class="icon-xs" alt="" />
+              <span>Admin</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Filter Radio Row -->
+        <div class="log-filter-bar">
+          <span class="filter-label">Filter:</span>
+          <div class="radio-group">
+            <label class="radio-item">
+              <input type="radio" name="logFilter" value="ALL" checked />
+              <span class="radio-custom"></span>
+              <span class="radio-text">Semua</span>
+            </label>
+            <label class="radio-item">
+              <input type="radio" name="logFilter" value="NGINX" />
+              <span class="radio-custom"></span>
+              <span class="radio-text">Nginx</span>
+            </label>
+            <label class="radio-item">
+              <input type="radio" name="logFilter" value="PHP" />
+              <span class="radio-custom"></span>
+              <span class="radio-text">PHP</span>
+            </label>
+            <label class="radio-item">
+              <input type="radio" name="logFilter" value="DB" />
+              <span class="radio-custom"></span>
+              <span class="radio-text">DB</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Dark Terminal Console -->
+        <div class="terminal-console" id="terminalConsole">
+          <pre id="logOutput">Menunggu log aktivitas dari server...</pre>
+        </div>
+
+        <!-- Terminal Bottom Actions -->
+        <div class="log-actions-bar">
+          <label class="checkbox-item">
+            <input type="checkbox" id="chkAutoScroll" checked />
+            <span>Auto-scroll</span>
+          </label>
+          <div class="terminal-btns">
+            <button class="btn-terminal" id="btnClearLogs">
+              <img src="icons/trash-gray.svg" class="icon-xs" alt="" />
+              <span>Bersihkan Tampilan</span>
+            </button>
+            <button class="btn-terminal" id="btnCopyLogs">
+              <img src="icons/copy-gray.svg" class="icon-xs" alt="" />
+              <span id="copyLogsText">Salin Log</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- C. Settings Modal / Overlay -->
+      <section class="modal-overlay" id="settingsModal" style="display: none;">
+        <div class="card modal-card">
+          <div class="modal-header">
+            <img src="icons/gear-gray.svg" class="icon-inline" alt="" />
+            <h3>Pengaturan Port Jaringan</h3>
+          </div>
+          <div class="form-group">
+            <label for="inputWebPort">Port Web (Nginx):</label>
+            <input type="number" id="inputWebPort" value="8080" />
+          </div>
+          <div class="form-group">
+            <label for="inputPhpPort">Port PHP (FastCGI):</label>
+            <input type="number" id="inputPhpPort" value="9000" />
+          </div>
+          <div class="form-group">
+            <label for="inputDbPort">Port Database (MariaDB):</label>
+            <input type="number" id="inputDbPort" value="3306" />
+          </div>
+          <div class="modal-actions">
+            <button class="btn-modal cancel" id="btnCancelSettings">Batal</button>
+            <button class="btn-modal save" id="btnSaveSettings">Simpan Port</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- 3. Bottom Footer Bar -->
+    <footer class="bottom-bar">
+      <button class="footer-btn" id="btnToggleSettings">
+        <img src="icons/gear-gray.svg" class="icon-sm" alt="" />
+        <span>Pengaturan</span>
+      </button>
+
+      <button class="footer-btn" id="btnOpenLogsFolder" style="display: none;">
+        <img src="icons/folder-gray.svg" class="icon-sm" alt="" />
+        <span>Buka Folder Logs</span>
+      </button>
+
+      <div class="footer-right">
+        <span class="version-tag" id="versionTag">v0.4 (Rust)</span>
+        <button class="footer-toggle-log" id="btnToggleLog" style="display: none;">
+          <span id="toggleLogArrow">▼</span>
+          <span id="toggleLogText">Tampilkan Log</span>
+        </button>
+      </div>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

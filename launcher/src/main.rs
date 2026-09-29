@@ -5,366 +5,231 @@ mod monitor;
 mod process;
 
 use config::{AppConfig, EnvPaths};
-use monitor::{LogEntry, LogMonitor};
+use monitor::LogMonitor;
 use process::ProcessManager;
-use slint::{ComponentHandle, SharedString, Timer, TimerMode};
+use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use tauri::{Emitter, Manager, State};
 
-slint::include_modules!();
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct AppStateDto {
+    pub is_running: bool,
+    pub is_setup_mode: bool,
+    pub is_busy: bool,
+    pub host_url: String,
+    pub admin_folder: Option<String>,
+    pub db_host: String,
+    pub db_port: u16,
+    pub db_user: String,
+    pub db_name: String,
+    pub web_port: u16,
+    pub php_port: u16,
+}
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let main_window = MainWindow::new()?;
+pub struct AppRuntime {
+    pub paths: Arc<EnvPaths>,
+    pub config: Arc<Mutex<AppConfig>>,
+    pub pm: Arc<Mutex<ProcessManager>>,
+    pub log_history: Arc<Mutex<Vec<String>>>,
+    pub is_busy: Arc<Mutex<bool>>,
+}
 
-    // 1. Resolve environment paths
+#[tauri::command]
+fn get_app_state(state: State<'_, AppRuntime>) -> AppStateDto {
+    let cfg = state.config.lock().unwrap();
+    let is_running = state.pm.lock().unwrap().is_running();
+    let is_busy = *state.is_busy.lock().unwrap();
+    let (is_setup, admin) = state.paths.detect_prestashop_state();
+
+    AppStateDto {
+        is_running,
+        is_setup_mode: is_setup,
+        is_busy,
+        host_url: format!("http://127.0.0.1:{}", cfg.web_port),
+        admin_folder: admin,
+        db_host: "127.0.0.1".into(),
+        db_port: cfg.db_port,
+        db_user: "root".into(),
+        db_name: "prestashop".into(),
+        web_port: cfg.web_port,
+        php_port: cfg.php_port,
+    }
+}
+
+#[tauri::command]
+fn start_services(state: State<'_, AppRuntime>) -> Result<(), String> {
+    {
+        let mut busy = state.is_busy.lock().unwrap();
+        *busy = true;
+    }
+
+    let pm = state.pm.clone();
+    let paths = state.paths.clone();
+    let busy_clone = state.is_busy.clone();
+
+    std::thread::spawn(move || {
+        let start_res = {
+            let mut manager = pm.lock().unwrap();
+            manager.start_all(&paths)
+        };
+        let mut busy = busy_clone.lock().unwrap();
+        *busy = false;
+        if let Err(e) = start_res {
+            eprintln!("Failed to start services: {}", e);
+        }
+    });
+
+    Ok(())
+}
+
+#[tauri::command]
+fn stop_services(state: State<'_, AppRuntime>) -> Result<(), String> {
+    {
+        let mut busy = state.is_busy.lock().unwrap();
+        *busy = true;
+    }
+
+    let pm = state.pm.clone();
+    let busy_clone = state.is_busy.clone();
+
+    std::thread::spawn(move || {
+        let stop_res = {
+            let mut manager = pm.lock().unwrap();
+            manager.stop_all()
+        };
+        let mut busy = busy_clone.lock().unwrap();
+        *busy = false;
+        if let Err(e) = stop_res {
+            eprintln!("Failed to stop services: {}", e);
+        }
+    });
+
+    Ok(())
+}
+
+#[tauri::command]
+fn open_shop(state: State<'_, AppRuntime>) -> Result<(), String> {
+    let (is_setup, _) = state.paths.detect_prestashop_state();
+    let cfg = state.config.lock().unwrap();
+    let url = if is_setup {
+        format!("http://127.0.0.1:{}/install/", cfg.web_port)
+    } else {
+        format!("http://127.0.0.1:{}/", cfg.web_port)
+    };
+    let _ = open::that(&url);
+    Ok(())
+}
+
+#[tauri::command]
+fn open_admin(state: State<'_, AppRuntime>) -> Result<(), String> {
+    let (_, admin_folder) = state.paths.detect_prestashop_state();
+    if let Some(admin) = admin_folder {
+        let cfg = state.config.lock().unwrap();
+        let url = format!("http://127.0.0.1:{}/{}/", cfg.web_port, admin);
+        let _ = open::that(&url);
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn open_logs_folder(state: State<'_, AppRuntime>) -> Result<(), String> {
+    let _ = open::that(&state.paths.logs_dir);
+    Ok(())
+}
+
+#[tauri::command]
+fn get_logs(state: State<'_, AppRuntime>) -> Vec<String> {
+    state.log_history.lock().unwrap().clone()
+}
+
+#[tauri::command]
+fn clear_logs(state: State<'_, AppRuntime>) -> Result<(), String> {
+    state.log_history.lock().unwrap().clear();
+    Ok(())
+}
+
+#[tauri::command]
+fn save_settings(
+    state: State<'_, AppRuntime>,
+    web_port: String,
+    php_port: String,
+    db_port: String,
+) -> Result<(), String> {
+    let mut cfg = state.config.lock().unwrap();
+    if let Ok(w) = web_port.parse::<u16>() {
+        cfg.web_port = w;
+    }
+    if let Ok(p) = php_port.parse::<u16>() {
+        cfg.php_port = p;
+    }
+    if let Ok(d) = db_port.parse::<u16>() {
+        cfg.db_port = d;
+    }
+    state.pm.lock().unwrap().update_ports(&cfg);
+    Ok(())
+}
+
+fn main() {
     let paths = Arc::new(EnvPaths::resolve().unwrap_or_else(|err| {
-        eprintln!("Warning: Error resolving paths: {}", err);
+        eprintln!("Fatal: cannot resolve runtime paths: {}", err);
         panic!("Fatal: cannot resolve runtime paths");
     }));
 
-    // 2. Load Configuration
     let config = Arc::new(Mutex::new(AppConfig::default()));
-
-    // 3. Process Manager
     let pm = Arc::new(Mutex::new(ProcessManager::new(&config.lock().unwrap())));
+    let log_history = Arc::new(Mutex::new(Vec::new()));
+    let is_busy = Arc::new(Mutex::new(false));
 
-    // 4. Log Monitor & History Buffer
+    // Start Log Monitor thread
     let log_monitor = LogMonitor::start(paths.logs_dir.clone());
-    let log_history = Arc::new(Mutex::new(Vec::<LogEntry>::new()));
-    let active_filter = Arc::new(Mutex::new(String::from("ALL")));
+    let log_history_clone = log_history.clone();
 
-    // Initial PrestaShop state
-    let (is_setup, admin_folder) = paths.detect_prestashop_state();
+    let runtime = AppRuntime {
+        paths: paths.clone(),
+        config: config.clone(),
+        pm: pm.clone(),
+        log_history: log_history.clone(),
+        is_busy: is_busy.clone(),
+    };
 
-    // Set initial UI properties
-    {
-        let cfg = config.lock().unwrap();
-        main_window.set_cfg_web_port(SharedString::from(cfg.web_port.to_string()));
-        main_window.set_cfg_php_port(SharedString::from(cfg.php_port.to_string()));
-        main_window.set_cfg_db_port(SharedString::from(cfg.db_port.to_string()));
-        main_window.set_host_url(SharedString::from(format!(
-            "http://127.0.0.1:{}",
-            cfg.web_port
-        )));
-        main_window.set_db_host(SharedString::from("127.0.0.1"));
-        main_window.set_db_port(SharedString::from(cfg.db_port.to_string()));
-        main_window.set_db_user(SharedString::from("root"));
-        main_window.set_db_name(SharedString::from("prestashop"));
-        main_window.set_is_setup_mode(is_setup);
-        if let Some(ref admin) = admin_folder {
-            main_window.set_admin_folder(SharedString::from(admin.clone()));
-        }
-    }
-
-    // Callback: Start Services (Asynchronous in background thread)
-    {
-        let pm = pm.clone();
-        let paths = paths.clone();
-        let ui_handle = main_window.as_weak();
-
-        main_window.on_start_services(move || {
-            let Some(ui) = ui_handle.upgrade() else {
-                return;
-            };
-            ui.set_is_busy(true);
-
-            let ui_weak = ui_handle.clone();
-            let pm = pm.clone();
-            let paths = paths.clone();
-
+    tauri::Builder::default()
+        .manage(runtime)
+        .invoke_handler(tauri::generate_handler![
+            get_app_state,
+            start_services,
+            stop_services,
+            open_shop,
+            open_admin,
+            open_logs_folder,
+            get_logs,
+            clear_logs,
+            save_settings
+        ])
+        .setup(move |app| {
+            let app_handle = app.handle().clone();
             std::thread::spawn(move || {
-                let start_result = {
-                    let mut manager = pm.lock().unwrap();
-                    manager.start_all(&paths)
-                };
-                let (is_setup, admin) = paths.detect_prestashop_state();
-
-                let _ = slint::invoke_from_event_loop(move || {
-                    if let Some(ui) = ui_weak.upgrade() {
-                        ui.set_is_busy(false);
-                        match start_result {
-                            Ok(_) => {
-                                ui.set_is_running(true);
-                                ui.set_status_text(SharedString::from("Berjalan"));
-                                ui.set_is_setup_mode(is_setup);
-                                if let Some(admin_name) = admin {
-                                    ui.set_admin_folder(SharedString::from(admin_name));
-                                }
-                            }
-                            Err(err) => {
-                                let err_msg = format!("Gagal: {}", err);
-                                eprintln!("{}", err_msg);
-                                ui.set_status_text(SharedString::from(err_msg));
-                                ui.set_is_running(false);
-                            }
+                while let Ok(entry) = log_monitor.receiver.recv() {
+                    let formatted = entry.formatted_line.clone();
+                    {
+                        let mut hist = log_history_clone.lock().unwrap();
+                        hist.push(formatted.clone());
+                        if hist.len() > 1000 {
+                            hist.remove(0);
                         }
                     }
-                });
+                    let _ = app_handle.emit("log-entry", formatted);
+                }
             });
-        });
-    }
-
-    // Callback: Stop Services (Asynchronous in background thread)
-    {
-        let pm = pm.clone();
-        let ui_handle = main_window.as_weak();
-
-        main_window.on_stop_services(move || {
-            let Some(ui) = ui_handle.upgrade() else {
-                return;
-            };
-            ui.set_is_busy(true);
-
-            let ui_weak = ui_handle.clone();
-            let pm = pm.clone();
-
-            std::thread::spawn(move || {
-                {
-                    let mut manager = pm.lock().unwrap();
-                    let _ = manager.stop_all();
-                }
-
-                let _ = slint::invoke_from_event_loop(move || {
-                    if let Some(ui) = ui_weak.upgrade() {
-                        ui.set_is_busy(false);
-                        ui.set_is_running(false);
-                        ui.set_status_text(SharedString::from("Berhenti"));
-                    }
-                });
-            });
-        });
-    }
-
-    // Callback: Open Shop
-    {
-        let config = config.clone();
-        let paths = paths.clone();
-        main_window.on_open_shop(move || {
-            let (is_setup, _) = paths.detect_prestashop_state();
-            let cfg = config.lock().unwrap();
-            let url = if is_setup {
-                format!("http://127.0.0.1:{}/install/", cfg.web_port)
-            } else {
-                format!("http://127.0.0.1:{}/", cfg.web_port)
-            };
-            let _ = open::that(&url);
-        });
-    }
-
-    // Callback: Open Admin
-    {
-        let config = config.clone();
-        let paths = paths.clone();
-        main_window.on_open_admin(move || {
-            let (_, admin_folder) = paths.detect_prestashop_state();
-            if let Some(admin) = admin_folder {
-                let cfg = config.lock().unwrap();
-                let url = format!("http://127.0.0.1:{}/{}/", cfg.web_port, admin);
-                let _ = open::that(&url);
+            Ok(())
+        })
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { .. } = event {
+                let state: State<AppRuntime> = window.state();
+                let mut manager = state.pm.lock().unwrap();
+                let _ = manager.stop_all();
             }
-        });
-    }
-
-    // Callback: Copy DB Info
-    {
-        let config = config.clone();
-        let ui_handle = main_window.as_weak();
-
-        main_window.on_copy_db_info(move || {
-            let cfg = config.lock().unwrap();
-            let text = format!(
-                "Host: 127.0.0.1\nPort: {}\nUser: root\nPassword: \nDatabase: prestashop",
-                cfg.db_port
-            );
-            if let Ok(mut clipboard) = arboard::Clipboard::new() {
-                let _ = clipboard.set_text(text);
-                if let Some(ui) = ui_handle.upgrade() {
-                    ui.set_db_copy_text(SharedString::from("Tersalin!"));
-                    let ui_weak = ui_handle.clone();
-                    Timer::single_shot(Duration::from_secs(2), move || {
-                        if let Some(ui) = ui_weak.upgrade() {
-                            ui.set_db_copy_text(SharedString::from("Salin Info"));
-                        }
-                    });
-                }
-            }
-        });
-    }
-
-    // Callback: Copy Logs
-    {
-        let ui_handle = main_window.as_weak();
-        let log_history = log_history.clone();
-        let active_filter = active_filter.clone();
-
-        main_window.on_copy_logs(move || {
-            let filter = active_filter.lock().unwrap().clone();
-            let logs = log_history.lock().unwrap();
-            let filtered_text: Vec<String> = logs
-                .iter()
-                .filter(|entry| filter == "ALL" || entry.source == filter)
-                .map(|e| e.formatted_line.clone())
-                .collect();
-            let all_logs = filtered_text.join("\n");
-
-            if let Ok(mut clipboard) = arboard::Clipboard::new() {
-                let _ = clipboard.set_text(all_logs);
-                if let Some(ui) = ui_handle.upgrade() {
-                    ui.set_copy_log_text(SharedString::from("Tersalin!"));
-                    let ui_weak = ui_handle.clone();
-                    Timer::single_shot(Duration::from_secs(2), move || {
-                        if let Some(ui) = ui_weak.upgrade() {
-                            ui.set_copy_log_text(SharedString::from("Salin Log"));
-                        }
-                    });
-                }
-            }
-        });
-    }
-
-    // Callback: Clear Logs
-    {
-        let log_history = log_history.clone();
-        let ui_handle = main_window.as_weak();
-
-        main_window.on_clear_logs(move || {
-            log_history.lock().unwrap().clear();
-            if let Some(ui) = ui_handle.upgrade() {
-                ui.set_log_content(SharedString::from(""));
-            }
-        });
-    }
-
-    // Callback: Open Logs Folder
-    {
-        let paths = paths.clone();
-        main_window.on_open_logs_folder(move || {
-            let _ = open::that(&paths.logs_dir);
-        });
-    }
-
-    // Callback: Toggle Log Filter
-    {
-        let active_filter = active_filter.clone();
-        let log_history = log_history.clone();
-        let ui_handle = main_window.as_weak();
-
-        main_window.on_toggle_log_filter(move |filter| {
-            let filter_str = filter.to_string();
-            *active_filter.lock().unwrap() = filter_str.clone();
-
-            if let Some(ui) = ui_handle.upgrade() {
-                ui.set_log_filter(SharedString::from(filter_str.clone()));
-                let logs = log_history.lock().unwrap();
-                let filtered: Vec<String> = logs
-                    .iter()
-                    .filter(|e| filter_str == "ALL" || e.source == filter_str)
-                    .map(|e| e.formatted_line.clone())
-                    .collect();
-                ui.set_log_content(SharedString::from(filtered.join("\n")));
-            }
-        });
-    }
-
-    // Callback: Save Settings
-    {
-        let config = config.clone();
-        let pm = pm.clone();
-        let ui_handle = main_window.as_weak();
-
-        main_window.on_save_settings(move |web_str, php_str, db_str| {
-            let mut cfg = config.lock().unwrap();
-            if let Ok(p) = web_str.parse::<u16>() {
-                cfg.web_port = p;
-            }
-            if let Ok(p) = php_str.parse::<u16>() {
-                cfg.php_port = p;
-            }
-            if let Ok(p) = db_str.parse::<u16>() {
-                cfg.db_port = p;
-            }
-
-            pm.lock().unwrap().update_ports(&cfg);
-
-            if let Some(ui) = ui_handle.upgrade() {
-                ui.set_cfg_web_port(SharedString::from(cfg.web_port.to_string()));
-                ui.set_cfg_php_port(SharedString::from(cfg.php_port.to_string()));
-                ui.set_cfg_db_port(SharedString::from(cfg.db_port.to_string()));
-                ui.set_db_port(SharedString::from(cfg.db_port.to_string()));
-                ui.set_host_url(SharedString::from(format!(
-                    "http://127.0.0.1:{}",
-                    cfg.web_port
-                )));
-            }
-        });
-    }
-
-    // Background Timer (every 400ms): Poll logs & state updates
-    let timer = Timer::default();
-    {
-        let ui_handle = main_window.as_weak();
-        let paths = paths.clone();
-        let log_history = log_history.clone();
-        let active_filter = active_filter.clone();
-        let pm = pm.clone();
-
-        timer.start(TimerMode::Repeated, Duration::from_millis(400), move || {
-            let Some(ui) = ui_handle.upgrade() else {
-                return;
-            };
-
-            // 1. Drain new log entries
-            let mut new_entries = Vec::new();
-            while let Ok(entry) = log_monitor.receiver.try_recv() {
-                new_entries.push(entry);
-            }
-
-            if !new_entries.is_empty() {
-                let mut history = log_history.lock().unwrap();
-                history.extend(new_entries);
-                // Keep last 1500 lines to avoid high memory
-                if history.len() > 1500 {
-                    let excess = history.len() - 1500;
-                    history.drain(0..excess);
-                }
-
-                let filter = active_filter.lock().unwrap().clone();
-                let filtered: Vec<String> = history
-                    .iter()
-                    .filter(|e| filter == "ALL" || e.source == filter)
-                    .map(|e| e.formatted_line.clone())
-                    .collect();
-                ui.set_log_content(SharedString::from(filtered.join("\n")));
-            }
-
-            // 2. Check process health if supposed to be running
-            if ui.get_is_running() {
-                let mut manager = pm.lock().unwrap();
-                if !manager.is_running() {
-                    ui.set_is_running(false);
-                    ui.set_status_text(SharedString::from("Layanan terhenti"));
-                }
-            }
-
-            // 3. Dynamic admin folder check
-            let (is_setup, admin) = paths.detect_prestashop_state();
-            if ui.get_is_setup_mode() != is_setup {
-                ui.set_is_setup_mode(is_setup);
-            }
-            if let Some(admin_name) = admin {
-                if ui.get_admin_folder() != admin_name {
-                    ui.set_admin_folder(SharedString::from(admin_name));
-                }
-            }
-        });
-    }
-
-    // Run Slint Event Loop
-    main_window.run()?;
-
-    // On window close, ensure all processes are stopped
-    let mut manager = pm.lock().unwrap();
-    let _ = manager.stop_all();
-
-    Ok(())
+        })
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
 }
