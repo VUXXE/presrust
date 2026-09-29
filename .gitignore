@@ -6,6 +6,7 @@ Cargo.lock.bak
 
 # PrestaShop local code / app
 prestashop/
+prestashop.zip
 app/
 
 # Portable Runtime Binaries

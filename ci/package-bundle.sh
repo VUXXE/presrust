@@ -21,25 +21,37 @@ rm -rf "${STAGE_DIR}"
 mkdir -p "${STAGE_DIR}" "${DIST_DIR}"
 
 # 1. Launcher Binary
+# NOTE: repo root is the Cargo workspace root, so `cargo build` (even when
+# invoked from launcher/) outputs to <root>/target. Check that first.
 LAUNCHER_NAME="PrestaShopLauncher"
 if [[ "${TARGET}" == windows* ]]; then
     LAUNCHER_NAME="PrestaShopLauncher.exe"
-    SRC_BIN="${ROOT_DIR}/launcher/target/release/prestashop-launcher.exe"
-    if [ ! -f "${SRC_BIN}" ]; then
-        SRC_BIN="${ROOT_DIR}/launcher/target/${TARGET}/release/prestashop-launcher.exe"
-    fi
+    SRC_BIN=""
+    for candidate in \
+        "${ROOT_DIR}/target/release/prestashop-launcher.exe" \
+        "${ROOT_DIR}/launcher/target/release/prestashop-launcher.exe" \
+        "${ROOT_DIR}/target/${TARGET}/release/prestashop-launcher.exe" \
+        "${ROOT_DIR}/launcher/target/${TARGET}/release/prestashop-launcher.exe"
+    do
+        if [ -f "${candidate}" ]; then SRC_BIN="${candidate}"; break; fi
+    done
 else
-    SRC_BIN="${ROOT_DIR}/launcher/target/release/prestashop-launcher"
-    if [ ! -f "${SRC_BIN}" ]; then
-        SRC_BIN="${ROOT_DIR}/launcher/target/${TARGET}/release/prestashop-launcher"
-    fi
+    SRC_BIN=""
+    for candidate in \
+        "${ROOT_DIR}/target/release/prestashop-launcher" \
+        "${ROOT_DIR}/launcher/target/release/prestashop-launcher" \
+        "${ROOT_DIR}/target/${TARGET}/release/prestashop-launcher" \
+        "${ROOT_DIR}/launcher/target/${TARGET}/release/prestashop-launcher"
+    do
+        if [ -f "${candidate}" ]; then SRC_BIN="${candidate}"; break; fi
+    done
 fi
 
-if [ -f "${SRC_BIN}" ]; then
+if [ -n "${SRC_BIN}" ]; then
     cp "${SRC_BIN}" "${STAGE_DIR}/${LAUNCHER_NAME}"
     chmod +x "${STAGE_DIR}/${LAUNCHER_NAME}"
 else
-    echo "Warning: Launcher binary not found at ${SRC_BIN}, creating placeholder"
+    echo "Warning: Launcher binary not found, creating placeholder"
     touch "${STAGE_DIR}/${LAUNCHER_NAME}"
 fi
 
@@ -65,8 +77,11 @@ elif [ -d "${ROOT_DIR}/app" ] && [ -f "${ROOT_DIR}/app/autoload.php" ]; then
     echo "--> Copying PrestaShop from local app/ directory..."
     cp -r "${ROOT_DIR}/app"/* "${STAGE_DIR}/app/"
 else
-    echo "--> Downloading official PrestaShop ${PRESTASHOP_VERSION} release..."
-    PS_URL="https://github.com/PrestaShop/PrestaShop/releases/download/${PRESTASHOP_VERSION}/prestashop_${PRESTASHOP_VERSION}.zip"
+    echo "--> Downloading PrestaShop ${PRESTASHOP_VERSION} core archive..."
+    # NOTE: PrestaShop 9.x GitHub releases ship no assets, so the core
+    # archive is pinned as a release asset in this repo (see release
+    # prestashop-core-<version>).
+    PS_URL="https://github.com/VUXXE/presrust/releases/download/prestashop-core-${PRESTASHOP_VERSION}/prestashop.zip"
     TEMP_PS_ZIP="$(mktemp --suffix=.zip 2>/dev/null || mktemp).zip"
     curl -fsSL -o "${TEMP_PS_ZIP}" "${PS_URL}"
     
