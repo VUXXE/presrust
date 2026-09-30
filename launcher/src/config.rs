@@ -83,6 +83,9 @@ impl EnvPaths {
         fs::create_dir_all(tmp_dir.join("nginx_client_body"))?;
         fs::create_dir_all(tmp_dir.join("nginx_proxy"))?;
         fs::create_dir_all(tmp_dir.join("nginx_fastcgi"))?;
+        fs::create_dir_all(tmp_dir.join("nginx_uwsgi"))?;
+        fs::create_dir_all(tmp_dir.join("nginx_scgi"))?;
+        fs::create_dir_all(root_dir.join("temp"))?;
         fs::create_dir_all(data_dir.join("mariadb"))?;
         if app_dir.exists() {
             let _ = fs::create_dir_all(app_dir.join("var/cache"));

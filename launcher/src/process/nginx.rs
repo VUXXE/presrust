@@ -98,6 +98,15 @@ impl NginxService {
             format!("{}/", root_p)
         };
 
+        // Ensure Nginx temporary directories exist (especially on Windows where official
+        // Nginx binary expects <prefix>/temp/* directories)
+        let _ = std::fs::create_dir_all(paths.root_dir.join("temp"));
+        let _ = std::fs::create_dir_all(paths.root_dir.join("temp/client_body_temp"));
+        let _ = std::fs::create_dir_all(paths.root_dir.join("temp/proxy_temp"));
+        let _ = std::fs::create_dir_all(paths.root_dir.join("temp/fastcgi_temp"));
+        let _ = std::fs::create_dir_all(paths.root_dir.join("temp/uwsgi_temp"));
+        let _ = std::fs::create_dir_all(paths.root_dir.join("temp/scgi_temp"));
+
         let mut cmd = Command::new(&bin);
         cmd.current_dir(&paths.root_dir);
         cmd.arg("-p")
@@ -119,9 +128,21 @@ impl NginxService {
 
         std::thread::sleep(std::time::Duration::from_millis(200));
         if let Ok(Some(status)) = child.try_wait() {
+            let error_log = paths.logs_dir.join("nginx_error.log");
+            let log_tail = std::fs::read_to_string(&error_log).unwrap_or_default();
+            let recent_lines = log_tail
+                .lines()
+                .rev()
+                .take(15)
+                .collect::<Vec<_>>()
+                .into_iter()
+                .rev()
+                .collect::<Vec<_>>()
+                .join("\n");
             bail!(
-                "Nginx failed to start and exited immediately with code {}. Check logs/nginx_error.log",
-                status
+                "Nginx failed to start (status: {}).\nLast error log entries:\n{}",
+                status,
+                recent_lines
             );
         }
 

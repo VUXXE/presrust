@@ -135,6 +135,9 @@ mkdir -p "${STAGE_DIR}/tmp/uploads"
 mkdir -p "${STAGE_DIR}/tmp/nginx_client_body"
 mkdir -p "${STAGE_DIR}/tmp/nginx_proxy"
 mkdir -p "${STAGE_DIR}/tmp/nginx_fastcgi"
+mkdir -p "${STAGE_DIR}/tmp/nginx_uwsgi"
+mkdir -p "${STAGE_DIR}/tmp/nginx_scgi"
+mkdir -p "${STAGE_DIR}/temp"
 mkdir -p "${STAGE_DIR}/logs"
 
 # Touch .gitkeep
@@ -144,6 +147,9 @@ touch "${STAGE_DIR}/tmp/uploads/.gitkeep"
 touch "${STAGE_DIR}/tmp/nginx_client_body/.gitkeep"
 touch "${STAGE_DIR}/tmp/nginx_proxy/.gitkeep"
 touch "${STAGE_DIR}/tmp/nginx_fastcgi/.gitkeep"
+touch "${STAGE_DIR}/tmp/nginx_uwsgi/.gitkeep"
+touch "${STAGE_DIR}/tmp/nginx_scgi/.gitkeep"
+touch "${STAGE_DIR}/temp/.gitkeep"
 touch "${STAGE_DIR}/logs/.gitkeep"
 
 # 6. Archive Creation
