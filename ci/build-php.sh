@@ -42,71 +42,101 @@ case "${TARGET}" in
         ;;
 
     linux-x86_64|macos-arm64|macos-x86_64)
-        echo "--> Building static php-cgi via static-php-cli (${SPC_VERSION})..."
-        SPC_BIN="${ROOT_DIR}/build/tools/spc"
-        mkdir -p "${ROOT_DIR}/build/tools"
+        SPC_OS="linux"
+        SPC_ARCH="x86_64"
+        if [[ "${TARGET}" == macos* ]]; then
+            SPC_OS="macos"
+            if [[ "${TARGET}" == "macos-arm64" ]]; then
+                SPC_ARCH="aarch64"
+            fi
+        fi
 
-        if [ ! -f "${SPC_BIN}" ]; then
-            echo "--> Downloading static-php-cli release binary..."
-            SPC_OS="linux"
-            SPC_ARCH="x86_64"
-            if [[ "${TARGET}" == macos* ]]; then
-                SPC_OS="macos"
-                if [[ "${TARGET}" == "macos-arm64" ]]; then
-                    SPC_ARCH="aarch64"
+        PREBUILT_BASE="https://dl.static-php.dev/static-php-cli/bulk"
+        echo "--> Checking for prebuilt static PHP ${PHP_VERSION} for ${TARGET}..."
+        
+        TEMP_FPM="$(mktemp --suffix=.tar.gz 2>/dev/null || mktemp).tar.gz"
+        TEMP_CLI="$(mktemp --suffix=.tar.gz 2>/dev/null || mktemp).tar.gz"
+        
+        PREBUILT_SUCCESS=false
+        if curl -fsSL -o "${TEMP_FPM}" "${PREBUILT_BASE}/php-${PHP_VERSION}-fpm-${SPC_OS}-${SPC_ARCH}.tar.gz" && \
+           curl -fsSL -o "${TEMP_CLI}" "${PREBUILT_BASE}/php-${PHP_VERSION}-cli-${SPC_OS}-${SPC_ARCH}.tar.gz"; then
+            echo "--> Extracting prebuilt static PHP binaries..."
+            tar -xzf "${TEMP_FPM}" -C "${OUTPUT_DIR}"
+            tar -xzf "${TEMP_CLI}" -C "${OUTPUT_DIR}"
+            chmod +x "${OUTPUT_DIR}/php-fpm" "${OUTPUT_DIR}/php" 2>/dev/null || true
+            cp "${OUTPUT_DIR}/php-fpm" "${OUTPUT_DIR}/php-cgi" 2>/dev/null || true
+            rm -f "${TEMP_FPM}" "${TEMP_CLI}"
+            PREBUILT_SUCCESS=true
+            echo "--> Prebuilt static PHP (fpm + cli) prepared successfully in ${OUTPUT_DIR}"
+        else
+            rm -f "${TEMP_FPM}" "${TEMP_CLI}"
+            echo "--> Notice: Prebuilt binaries not available at ${PREBUILT_BASE}, falling back to static-php-cli compile..."
+        fi
+
+        if [ "${PREBUILT_SUCCESS}" != "true" ]; then
+            echo "--> Building static php via static-php-cli (${SPC_VERSION})..."
+            SPC_BIN="${ROOT_DIR}/build/tools/spc"
+            mkdir -p "${ROOT_DIR}/build/tools"
+
+            if [ ! -f "${SPC_BIN}" ]; then
+                echo "--> Downloading static-php-cli release binary..."
+                SPC_URL="https://github.com/crazywhalecc/static-php-cli/releases/download/${SPC_VERSION}/spc-${SPC_OS}-${SPC_ARCH}.tar.gz"
+                TEMP_TGZ="$(mktemp --suffix=.tar.gz 2>/dev/null || mktemp).tar.gz"
+                curl -fsSL -o "${TEMP_TGZ}" "${SPC_URL}"
+                tar -xzf "${TEMP_TGZ}" -C "${ROOT_DIR}/build/tools"
+                chmod +x "${SPC_BIN}"
+                rm -f "${TEMP_TGZ}"
+            fi
+
+            echo "--> Running spc doctor to configure build environment..."
+            "${SPC_BIN}" doctor --auto-fix || true
+
+            echo "--> Fetching source dependencies via spc..."
+            # NOTE: spc download hits many upstreams; transient 403/56 errors
+            # happen on shared CI runners. Retry before giving up.
+            SPC_ATTEMPT=1
+            until "${SPC_BIN}" download --with-php="${PHP_SERIES}" --for-extensions="${REQUIRED_EXTENSIONS}"; do
+                if [ "${SPC_ATTEMPT}" -ge 3 ]; then
+                    echo "Error: spc download failed after 3 attempts" >&2
+                    exit 1
                 fi
+                echo "--> spc download failed (attempt ${SPC_ATTEMPT}), retrying in 15s..."
+                SPC_ATTEMPT=$((SPC_ATTEMPT + 1))
+                sleep 15
+            done
+
+            echo "--> Compiling php-fpm and php-cli statically..."
+            # NOTE: spc 2.x has no --build-cgi SAPI flag. php-fpm speaks
+            # FastCGI exactly like php-cgi, and the launcher already prefers
+            # php-fpm (see PhpService::find_binary / is_fpm branch).
+            if [[ "${TARGET}" == "linux-x86_64" ]]; then
+                # spc defaults to a musl target on glibc distros, demanding a
+                # musl-cross-make toolchain at /usr/local/musl. Our bundle
+                # already links glibc (nginx is compiled on-runner, MariaDB
+                # ships official glibc binaries), so a musl PHP adds no
+                # portability — build against glibc instead.
+                export SPC_LIBC=glibc
             fi
-            
-            SPC_URL="https://github.com/crazywhalecc/static-php-cli/releases/download/${SPC_VERSION}/spc-${SPC_OS}-${SPC_ARCH}.tar.gz"
-            TEMP_TGZ="$(mktemp --suffix=.tar.gz 2>/dev/null || mktemp).tar.gz"
-            curl -fsSL -o "${TEMP_TGZ}" "${SPC_URL}"
-            tar -xzf "${TEMP_TGZ}" -C "${ROOT_DIR}/build/tools"
-            chmod +x "${SPC_BIN}"
-            rm -f "${TEMP_TGZ}"
-        fi
+            "${SPC_BIN}" build "${REQUIRED_EXTENSIONS}" --build-fpm --build-cli --debug
 
-        echo "--> Fetching source dependencies via spc..."
-        # NOTE: spc download hits many upstreams; transient 403/56 errors
-        # happen on shared CI runners. Retry before giving up.
-        SPC_ATTEMPT=1
-        until "${SPC_BIN}" download --with-php="${PHP_SERIES}" --for-extensions="${REQUIRED_EXTENSIONS}"; do
-            if [ "${SPC_ATTEMPT}" -ge 3 ]; then
-                echo "Error: spc download failed after 3 attempts" >&2
-                exit 1
+            # spc outputs to buildroot/bin/
+            if [ -f "buildroot/bin/php-cgi" ]; then
+                cp "buildroot/bin/php-cgi" "${OUTPUT_DIR}/php-cgi"
+                chmod +x "${OUTPUT_DIR}/php-cgi"
             fi
-            echo "--> spc download failed (attempt ${SPC_ATTEMPT}), retrying in 15s..."
-            SPC_ATTEMPT=$((SPC_ATTEMPT + 1))
-            sleep 15
-        done
-
-        echo "--> Compiling php-fpm and php-cli statically..."
-        # NOTE: spc 2.x has no --build-cgi SAPI flag. php-fpm speaks
-        # FastCGI exactly like php-cgi, and the launcher already prefers
-        # php-fpm (see PhpService::find_binary / is_fpm branch).
-        if [[ "${TARGET}" == "linux-x86_64" ]]; then
-            # spc defaults to a musl target on glibc distros, demanding a
-            # musl-cross-make toolchain at /usr/local/musl. Our bundle
-            # already links glibc (nginx is compiled on-runner, MariaDB
-            # ships official glibc binaries), so a musl PHP adds no
-            # portability — build against glibc instead.
-            export SPC_LIBC=glibc
+            if [ -f "buildroot/bin/php-fpm" ]; then
+                cp "buildroot/bin/php-fpm" "${OUTPUT_DIR}/php-fpm"
+                chmod +x "${OUTPUT_DIR}/php-fpm"
+            fi
+            if [ -f "buildroot/bin/php" ]; then
+                cp "buildroot/bin/php" "${OUTPUT_DIR}/php"
+                chmod +x "${OUTPUT_DIR}/php"
+            fi
+            if [ -f "${OUTPUT_DIR}/php-fpm" ] && [ ! -f "${OUTPUT_DIR}/php-cgi" ]; then
+                cp "${OUTPUT_DIR}/php-fpm" "${OUTPUT_DIR}/php-cgi"
+            fi
+            echo "--> Static PHP built successfully into ${OUTPUT_DIR}"
         fi
-        "${SPC_BIN}" build "${REQUIRED_EXTENSIONS}" --build-fpm --build-cli
-
-        # spc outputs to buildroot/bin/
-        if [ -f "buildroot/bin/php-cgi" ]; then
-            cp "buildroot/bin/php-cgi" "${OUTPUT_DIR}/php-cgi"
-            chmod +x "${OUTPUT_DIR}/php-cgi"
-        fi
-        if [ -f "buildroot/bin/php-fpm" ]; then
-            cp "buildroot/bin/php-fpm" "${OUTPUT_DIR}/php-fpm"
-            chmod +x "${OUTPUT_DIR}/php-fpm"
-        fi
-        if [ -f "buildroot/bin/php" ]; then
-            cp "buildroot/bin/php" "${OUTPUT_DIR}/php"
-            chmod +x "${OUTPUT_DIR}/php"
-        fi
-        echo "--> Static PHP built successfully into ${OUTPUT_DIR}"
         ;;
 
     *)

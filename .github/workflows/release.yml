@@ -7,7 +7,7 @@ on:
 
 jobs:
   # Launcher (Rust) builds in parallel with the native runtimes below,
-  # instead of waiting 15-30 min for PHP first. Hands the binary to the
+  # instead of waiting for runtimes first. Hands the binary to the
   # bundle job via the launcher-bin-<target> artifact.
   build-launcher:
     name: Build Launcher (${{ matrix.target }})
@@ -16,11 +16,18 @@ jobs:
       matrix:
         include:
           - { target: windows-x86_64, os: windows-2025,   bin: prestashop-launcher.exe }
+          - { target: linux-x86_64,   os: ubuntu-24.04,   bin: prestashop-launcher }
           - { target: macos-arm64,    os: macos-15,       bin: prestashop-launcher }
           - { target: macos-x86_64,   os: macos-15-intel, bin: prestashop-launcher }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install Linux GUI Dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev libfontconfig1-dev libx11-dev libxext-dev libxfixes-dev libxinerama-dev libxrandr-dev libxcursor-dev xz-utils
 
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
@@ -43,9 +50,7 @@ jobs:
       matrix:
         include:
           - { target: windows-x86_64, os: windows-2025,   ext: zip,    bin: prestashop-launcher.exe }
-          # TODO(linux): re-enable after fixing spc pkg-config source
-          # build failure (make -j4 fails on ubuntu-24.04 runner).
-          # - { target: linux-x86_64,   os: ubuntu-24.04, ext: tar.xz, bin: prestashop-launcher }
+          - { target: linux-x86_64,   os: ubuntu-24.04,   ext: tar.xz, bin: prestashop-launcher }
           - { target: macos-arm64,    os: macos-15,       ext: tar.xz, bin: prestashop-launcher }
           - { target: macos-x86_64,   os: macos-15-intel, ext: tar.xz, bin: prestashop-launcher }
     runs-on: ${{ matrix.os }}
@@ -69,7 +74,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: build/runtime/${{ matrix.target }}
-          key: runtime-${{ matrix.target }}-${{ hashFiles('versions.env', 'ci/**') }}
+          key: runtime-${{ matrix.target }}-${{ hashFiles('versions.env', 'ci/build-runtime.sh', 'ci/build-php.sh', 'ci/build-nginx.sh', 'ci/prepare-mariadb.sh') }}
+          restore-keys: |
+            runtime-${{ matrix.target }}-
 
       # 3. Build / Fetch Runtimes (Hanya jalan jika cache miss)
       - name: Build Runtime Binaries
@@ -97,6 +104,7 @@ jobs:
       matrix:
         include:
           - { target: windows-x86_64, os: windows-2025,   ext: zip,    bin: prestashop-launcher.exe }
+          - { target: linux-x86_64,   os: ubuntu-24.04,   ext: tar.xz, bin: prestashop-launcher }
           - { target: macos-arm64,    os: macos-15,       ext: tar.xz, bin: prestashop-launcher }
           - { target: macos-x86_64,   os: macos-15-intel, ext: tar.xz, bin: prestashop-launcher }
     runs-on: ${{ matrix.os }}
@@ -141,12 +149,13 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
+          pattern: prestashop-portable-*
           path: release-assets
           merge-multiple: true
       - name: Compute Checksums
         run: |
           cd release-assets
-          sha256sum * > SHA256SUMS
+          sha256sum prestashop-portable-* > SHA256SUMS
       - name: Publish to GitHub Releases
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/v')

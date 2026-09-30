@@ -61,6 +61,33 @@ if [[ "$(uname -s)" == "Linux" && "${TARGET}" == "linux-x86_64" ]] || \
         echo "--> Testing Nginx binary: ${NGINX_BIN} -v"
         "${NGINX_BIN}" -v || true
     fi
+
+    MARIADB_BIN="${STAGE_DIR}/runtime/${TARGET}/mariadb/bin/mariadbd"
+    if [ -f "${MARIADB_BIN}" ]; then
+        echo "--> Testing MariaDB binary: ${MARIADB_BIN} --version"
+        "${MARIADB_BIN}" --version || true
+    fi
+fi
+
+if [[ "${TARGET}" == windows* ]]; then
+    PHP_BIN="${STAGE_DIR}/runtime/${TARGET}/php/php-cgi.exe"
+    if [ -f "${PHP_BIN}" ]; then
+        echo "--> Testing Windows PHP binary: ${PHP_BIN} -v"
+        "${PHP_BIN}" -v || true
+    fi
+
+    NGINX_BIN="${STAGE_DIR}/runtime/${TARGET}/nginx/nginx.exe"
+    if [ -f "${NGINX_BIN}" ]; then
+        echo "--> Testing Windows Nginx binary: ${NGINX_BIN} -v"
+        "${NGINX_BIN}" -v || true
+    fi
+
+    MARIADB_BIN="${STAGE_DIR}/runtime/${TARGET}/mariadb/bin/mariadbd.exe"
+    [ -f "${MARIADB_BIN}" ] || MARIADB_BIN="${STAGE_DIR}/runtime/${TARGET}/mariadb/bin/mysqld.exe"
+    if [ -f "${MARIADB_BIN}" ]; then
+        echo "--> Testing Windows MariaDB binary: ${MARIADB_BIN} --version"
+        "${MARIADB_BIN}" --version || true
+    fi
 fi
 
 echo "==> All Smoke Tests passed for ${TARGET}!"

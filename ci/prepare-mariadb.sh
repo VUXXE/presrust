@@ -95,31 +95,38 @@ case "${TARGET}" in
         ;;
 
     macos-arm64|macos-x86_64)
-        echo "--> macOS MariaDB: extracting portable binaries..."
-        # On macOS runners, MariaDB can be fetched via portable brew package or archive
-        ARCH="arm64"
-        if [ "${TARGET}" = "macos-x86_64" ]; then
-            ARCH="x86_64"
-        fi
-        
-        # We can extract minimal mariadb binaries using brew bottles
+        echo "--> macOS MariaDB: preparing binaries..."
         mkdir -p "${OUTPUT_DIR}/bin" "${OUTPUT_DIR}/share"
-        echo "--> Extracting from Homebrew bottles on macOS runner..."
-        brew fetch --bottle-tag="$(brew config | grep "macOS:" | awk '{print $2}' | tr '[:upper:]' '[:lower:]')" mariadb || brew fetch mariadb || true
-        
-        # If brew is installed, copy stripped binaries
-        if command -v mariadbd >/dev/null 2>&1; then
-            cp "$(command -v mariadbd)" "${OUTPUT_DIR}/bin/"
-            cp "$(command -v mariadb)" "${OUTPUT_DIR}/bin/" || true
-            cp "$(command -v mariadb-install-db)" "${OUTPUT_DIR}/bin/" || true
-        elif [ -d "/usr/local/opt/mariadb" ] || [ -d "/opt/homebrew/opt/mariadb" ]; then
-            M_DIR="/opt/homebrew/opt/mariadb"
-            [ -d "${M_DIR}" ] || M_DIR="/usr/local/opt/mariadb"
-            cp "${M_DIR}"/bin/mariadbd "${OUTPUT_DIR}/bin/" || true
-            cp "${M_DIR}"/bin/mariadb "${OUTPUT_DIR}/bin/" || true
-            cp "${M_DIR}"/bin/mariadb-install-db "${OUTPUT_DIR}/bin/" || true
-            cp -r "${M_DIR}/share/mariadb" "${OUTPUT_DIR}/share/" || true
+
+        # On macOS runners, install MariaDB via Homebrew if mariadbd is missing
+        if ! command -v mariadbd >/dev/null 2>&1; then
+            echo "--> Installing MariaDB via Homebrew on macOS runner..."
+            HOMEBREW_NO_AUTO_UPDATE=1 brew install mariadb || true
         fi
+
+        M_DIR=""
+        if command -v brew >/dev/null 2>&1; then
+            M_DIR="$(brew --prefix mariadb 2>/dev/null || true)"
+        fi
+
+        if [ -n "${M_DIR}" ] && [ -d "${M_DIR}" ]; then
+            echo "--> Extracting from Homebrew MariaDB at ${M_DIR}..."
+            for b in mariadbd mariadb mariadb-install-db mysqladmin mariadb-admin; do
+                if [ -f "${M_DIR}/bin/${b}" ]; then
+                    cp "${M_DIR}/bin/${b}" "${OUTPUT_DIR}/bin/"
+                fi
+            done
+            if [ -d "${M_DIR}/share/mariadb" ]; then
+                cp -r "${M_DIR}/share/mariadb" "${OUTPUT_DIR}/share/"
+            fi
+        fi
+
+        # Fallback to system PATH
+        for b in mariadbd mariadb mariadb-install-db mysqladmin mariadb-admin; do
+            if [ ! -f "${OUTPUT_DIR}/bin/${b}" ] && command -v "${b}" >/dev/null 2>&1; then
+                cp "$(command -v "${b}")" "${OUTPUT_DIR}/bin/"
+            fi
+        done
         ;;
 
     *)
