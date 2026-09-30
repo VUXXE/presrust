@@ -96,7 +96,15 @@ impl MariaDbService {
 
         // First-time database init if mysql system database directory doesn't exist
         if !datadir.join("mysql").exists() {
-            let _ = Self::initialize_db(paths, &datadir);
+            if let Ok(entries) = std::fs::read_dir(&datadir) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.is_file() {
+                        let _ = std::fs::remove_file(path);
+                    }
+                }
+            }
+            Self::initialize_db(paths, &datadir)?;
         }
 
         let mut cmd = Command::new(&bin);
@@ -144,9 +152,17 @@ impl MariaDbService {
             cmd.creation_flags(0x08000000);
         }
 
-        let child = cmd
+        let mut child = cmd
             .spawn()
             .with_context(|| format!("Failed to spawn MariaDB process {:?}", bin))?;
+
+        std::thread::sleep(std::time::Duration::from_millis(300));
+        if let Ok(Some(status)) = child.try_wait() {
+            bail!(
+                "MariaDB failed to start and exited immediately with code {}. Check logs/mariadb_error.log",
+                status
+            );
+        }
 
         self.child = Some(child);
         Ok(())
@@ -156,61 +172,102 @@ impl MariaDbService {
         // Search for install-db binary
         let mut install_bin = None;
         for sub in &[
-            "linux-x86_64",
             "windows-x86_64",
+            "linux-x86_64",
             "macos-arm64",
             "macos-x86_64",
             "",
         ] {
-            let p1 = paths
-                .runtime_dir
-                .join(sub)
-                .join("mariadb/bin/mariadb-install-db");
-            let p2 = paths
-                .runtime_dir
-                .join(sub)
-                .join("mariadb/bin/mysql_install_db.exe");
-            let p3 = paths
-                .runtime_dir
-                .join(sub)
-                .join("mariadb/scripts/mysql_install_db");
-            if p1.exists() {
-                install_bin = Some(p1);
-                break;
+            for candidate in &[
+                "mariadb/bin/mariadb-install-db.exe",
+                "mariadb/bin/mysql_install_db.exe",
+                "mariadb/bin/mariadb-install-db",
+                "mariadb/scripts/mysql_install_db",
+            ] {
+                let p = paths.runtime_dir.join(sub).join(candidate);
+                if p.exists() {
+                    install_bin = Some(p);
+                    break;
+                }
             }
-            if p2.exists() {
-                install_bin = Some(p2);
-                break;
-            }
-            if p3.exists() {
-                install_bin = Some(p3);
+            if install_bin.is_some() {
                 break;
             }
         }
 
         if install_bin.is_none() {
-            if let Ok(path) = which::which("mariadb-install-db") {
-                install_bin = Some(path);
-            } else if let Ok(path) = which::which("mysql_install_db") {
-                install_bin = Some(path);
-            }
-        }
-
-        if let Some(installer) = install_bin {
-            #[cfg(unix)]
-            {
-                use std::os::unix::fs::PermissionsExt;
-                if let Ok(metadata) = installer.metadata() {
-                    let mut perms = metadata.permissions();
-                    let mode = perms.mode();
-                    if mode & 0o111 != 0o111 {
-                        perms.set_mode(mode | 0o755);
-                        let _ = std::fs::set_permissions(&installer, perms);
+            if let Ok(entries) = std::fs::read_dir(&paths.runtime_dir) {
+                for entry in entries.flatten() {
+                    for candidate in &[
+                        "mariadb/bin/mariadb-install-db.exe",
+                        "mariadb/bin/mysql_install_db.exe",
+                        "mariadb/bin/mariadb-install-db",
+                        "mariadb/scripts/mysql_install_db",
+                    ] {
+                        let bin = entry.path().join(candidate);
+                        if bin.exists() {
+                            install_bin = Some(bin);
+                            break;
+                        }
+                    }
+                    if install_bin.is_some() {
+                        break;
                     }
                 }
             }
+        }
 
-            let mut init_cmd = Command::new(&installer);
+        if install_bin.is_none() {
+            for name in &[
+                "mariadb-install-db.exe",
+                "mysql_install_db.exe",
+                "mariadb-install-db",
+                "mysql_install_db",
+            ] {
+                if let Ok(path) = which::which(name) {
+                    install_bin = Some(path);
+                    break;
+                }
+            }
+        }
+
+        let installer = match install_bin {
+            Some(i) => i,
+            None => bail!("MariaDB database installer binary (mariadb-install-db / mysql_install_db) not found"),
+        };
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            if let Ok(metadata) = installer.metadata() {
+                let mut perms = metadata.permissions();
+                let mode = perms.mode();
+                if mode & 0o111 != 0o111 {
+                    perms.set_mode(mode | 0o755);
+                    let _ = std::fs::set_permissions(&installer, perms);
+                }
+            }
+        }
+
+        let mut init_cmd = Command::new(&installer);
+
+        #[cfg(windows)]
+        {
+            let datadir_str = datadir.to_string_lossy().replace('\\', "/");
+            init_cmd
+                .arg(format!("--datadir={}", datadir_str))
+                .arg("--password=");
+            if let Some(base) = installer.parent().and_then(|p| p.parent()) {
+                init_cmd.current_dir(base);
+                let base_str = base.to_string_lossy().replace('\\', "/");
+                init_cmd.arg(format!("--basedir={}", base_str));
+            }
+            use std::os::windows::process::CommandExt;
+            init_cmd.creation_flags(0x08000000);
+        }
+
+        #[cfg(not(windows))]
+        {
             init_cmd
                 .arg("--no-defaults")
                 .arg(format!("--datadir={}", datadir.to_string_lossy()))
@@ -229,17 +286,16 @@ impl MariaDbService {
                     }
                 }
             }
+        }
 
-            #[cfg(windows)]
-            {
-                use std::os::windows::process::CommandExt;
-                init_cmd.creation_flags(0x08000000);
-            }
-
-            let status = init_cmd.status();
-            if let Err(e) = status {
-                eprintln!("Warning: Failed to execute DB initialization: {}", e);
-            }
+        let status = init_cmd
+            .status()
+            .with_context(|| format!("Failed to spawn DB installer {:?}", installer))?;
+        if !status.success() {
+            bail!(
+                "MariaDB database initialization failed with status: {}",
+                status
+            );
         }
         Ok(())
     }

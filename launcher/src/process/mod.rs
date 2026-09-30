@@ -29,7 +29,7 @@ impl ProcessManager {
     }
 
     pub fn is_running(&mut self) -> bool {
-        self.mariadb.is_running() || self.php.is_running() || self.nginx.is_running()
+        self.mariadb.is_running() && self.php.is_running() && self.nginx.is_running()
     }
 
     pub fn cleanup_orphaned_processes(paths: &EnvPaths) {
@@ -91,13 +91,22 @@ impl ProcessManager {
         }
 
         // 1. Start MariaDB
-        self.mariadb.start(paths)?;
+        if let Err(e) = self.mariadb.start(paths) {
+            let _ = self.stop_all();
+            bail!("MariaDB error: {:#}", e);
+        }
 
         // 2. Start PHP-CGI
-        self.php.start(paths)?;
+        if let Err(e) = self.php.start(paths) {
+            let _ = self.stop_all();
+            bail!("PHP error: {:#}", e);
+        }
 
         // 3. Start Nginx
-        self.nginx.start(paths)?;
+        if let Err(e) = self.nginx.start(paths) {
+            let _ = self.stop_all();
+            bail!("Nginx error: {:#}", e);
+        }
 
         Ok(())
     }

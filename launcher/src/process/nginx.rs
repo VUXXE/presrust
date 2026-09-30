@@ -90,11 +90,20 @@ impl NginxService {
         }
         let nginx_conf = paths.generate_nginx_conf(self.port, self.php_port)?;
 
+        let root_p = paths.root_dir.to_string_lossy().replace('\\', "/");
+        let conf_p = nginx_conf.to_string_lossy().replace('\\', "/");
+        let prefix = if root_p.ends_with('/') {
+            root_p
+        } else {
+            format!("{}/", root_p)
+        };
+
         let mut cmd = Command::new(&bin);
+        cmd.current_dir(&paths.root_dir);
         cmd.arg("-p")
-            .arg(paths.root_dir.to_string_lossy().to_string())
+            .arg(&prefix)
             .arg("-c")
-            .arg(nginx_conf.to_string_lossy().to_string())
+            .arg(&conf_p)
             .stdout(Stdio::null())
             .stderr(Stdio::null());
 
@@ -104,9 +113,17 @@ impl NginxService {
             cmd.creation_flags(0x08000000);
         }
 
-        let child = cmd
+        let mut child = cmd
             .spawn()
             .with_context(|| format!("Failed to spawn Nginx process {:?}", bin))?;
+
+        std::thread::sleep(std::time::Duration::from_millis(200));
+        if let Ok(Some(status)) = child.try_wait() {
+            bail!(
+                "Nginx failed to start and exited immediately with code {}. Check logs/nginx_error.log",
+                status
+            );
+        }
 
         let _ = std::fs::write(paths.tmp_dir.join("nginx.pid"), child.id().to_string());
 

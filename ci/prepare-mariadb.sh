@@ -34,7 +34,7 @@ case "${TARGET}" in
 
         # Copy essential binaries
         mkdir -p "${OUTPUT_DIR}/bin" "${OUTPUT_DIR}/share"
-        for bin in mysqld.exe mariadbd.exe mysql.exe mariadb.exe mysqladmin.exe mariadb-admin.exe mysql_install_db.exe; do
+        for bin in mysqld.exe mariadbd.exe mysql.exe mariadb.exe mysqladmin.exe mariadb-admin.exe mysql_install_db.exe mariadb-install-db.exe my_print_defaults.exe; do
             if [ -f "${SRC_DIR}/bin/${bin}" ]; then
                 cp "${SRC_DIR}/bin/${bin}" "${OUTPUT_DIR}/bin/"
             fi
