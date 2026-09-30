@@ -168,6 +168,14 @@ mod tests {
         }
 
         let config = AppConfig::default();
+        if !ProcessManager::is_port_available(config.db_port)
+            || !ProcessManager::is_port_available(config.php_port)
+            || !ProcessManager::is_port_available(config.web_port)
+        {
+            eprintln!("Skipping test: required ports are already in use on host system");
+            return;
+        }
+
         let pm = std::sync::Arc::new(std::sync::Mutex::new(ProcessManager::new(&config)));
 
         // Spawn in worker thread exactly like main.rs

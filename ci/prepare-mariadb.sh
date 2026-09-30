@@ -42,6 +42,11 @@ case "${TARGET}" in
         # Copy required DLLs from bin
         cp "${SRC_DIR}"/bin/*.dll "${OUTPUT_DIR}/bin/" 2>/dev/null || true
 
+        # Ensure mysqld.exe exists (mariadb-install-db invokes mysqld.exe)
+        if [ ! -f "${OUTPUT_DIR}/bin/mysqld.exe" ] && [ -f "${OUTPUT_DIR}/bin/mariadbd.exe" ]; then
+            cp "${OUTPUT_DIR}/bin/mariadbd.exe" "${OUTPUT_DIR}/bin/mysqld.exe"
+        fi
+
         # Copy VC++ runtime DLLs if running on Windows host
         VC_DLLS=(vcruntime140.dll vcruntime140_1.dll msvcp140.dll msvcp140_1.dll msvcp140_2.dll msvcp140_codecvt_ids.dll vcomp140.dll concrt140.dll)
         for sys_dir in "/c/Windows/System32" "/c/Windows/SysWOW64" "C:/Windows/System32" "${WINDIR:-}/System32"; do

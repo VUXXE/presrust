@@ -101,41 +101,51 @@ impl MariaDbService {
                     let path = entry.path();
                     if path.is_file() {
                         let _ = std::fs::remove_file(path);
+                    } else if path.is_dir() {
+                        let _ = std::fs::remove_dir_all(path);
                     }
                 }
             }
             Self::initialize_db(paths, &datadir)?;
         }
 
+        let datadir_str = datadir.to_string_lossy().replace('\\', "/");
+        let error_log_str = error_log.to_string_lossy().replace('\\', "/");
+        let socket_str = paths
+            .tmp_dir
+            .join("mysql.sock")
+            .to_string_lossy()
+            .replace('\\', "/");
+        let pid_str = paths
+            .tmp_dir
+            .join("mariadb.pid")
+            .to_string_lossy()
+            .replace('\\', "/");
+        let tmp_str = paths.tmp_dir.to_string_lossy().replace('\\', "/");
+
         let mut cmd = Command::new(&bin);
         // --no-defaults MUST be the first argument to prevent loading host system /etc/my.cnf.d/*.cnf
         cmd.arg("--no-defaults")
-            .arg(format!("--datadir={}", datadir.to_string_lossy()))
+            .arg(format!("--datadir={}", datadir_str))
             .arg(format!("--port={}", self.port))
             .arg("--bind-address=127.0.0.1")
-            .arg(format!("--log-error={}", error_log.to_string_lossy()))
-            .arg(format!(
-                "--socket={}",
-                paths.tmp_dir.join("mysql.sock").to_string_lossy()
-            ))
-            .arg(format!(
-                "--pid-file={}",
-                paths.tmp_dir.join("mariadb.pid").to_string_lossy()
-            ))
-            .arg(format!("--tmpdir={}", paths.tmp_dir.to_string_lossy()))
+            .arg(format!("--log-error={}", error_log_str))
+            .arg(format!("--socket={}", socket_str))
+            .arg(format!("--pid-file={}", pid_str))
+            .arg(format!("--tmpdir={}", tmp_str))
             .arg("--default-storage-engine=InnoDB")
             .arg("--skip-networking=0")
             .stdout(Stdio::null())
             .stderr(Stdio::null());
 
-        // Only set --basedir if it's a real bundled MariaDB (not a symlink to /usr or system)
-        if let Ok(real_path) = bin.canonicalize() {
-            if !real_path.starts_with("/usr") {
-                if let Some(base) = real_path.parent().and_then(|p| p.parent()) {
-                    if base.join("share/english").exists() || base.join("share/charsets").exists() {
-                        cmd.arg(format!("--basedir={}", base.to_string_lossy()));
-                    }
-                }
+        // Set --basedir if bundled MariaDB
+        if let Some(base) = bin.parent().and_then(|p| p.parent()) {
+            if base.join("share/english").exists()
+                || base.join("share/charsets").exists()
+                || base.join("share").exists()
+            {
+                let base_str = base.to_string_lossy().replace('\\', "/");
+                cmd.arg(format!("--basedir={}", base_str));
             }
         }
 
@@ -144,7 +154,8 @@ impl MariaDbService {
             &init_sql,
             "CREATE DATABASE IF NOT EXISTS `prestashop` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;\n",
         );
-        cmd.arg(format!("--init-file={}", init_sql.to_string_lossy()));
+        let init_sql_str = init_sql.to_string_lossy().replace('\\', "/");
+        cmd.arg(format!("--init-file={}", init_sql_str));
 
         #[cfg(windows)]
         {
@@ -156,11 +167,22 @@ impl MariaDbService {
             .spawn()
             .with_context(|| format!("Failed to spawn MariaDB process {:?}", bin))?;
 
-        std::thread::sleep(std::time::Duration::from_millis(300));
+        std::thread::sleep(std::time::Duration::from_millis(500));
         if let Ok(Some(status)) = child.try_wait() {
+            let log_tail = std::fs::read_to_string(&error_log).unwrap_or_default();
+            let recent_lines = log_tail
+                .lines()
+                .rev()
+                .take(15)
+                .collect::<Vec<_>>()
+                .into_iter()
+                .rev()
+                .collect::<Vec<_>>()
+                .join("\n");
             bail!(
-                "MariaDB failed to start and exited immediately with code {}. Check logs/mariadb_error.log",
-                status
+                "MariaDB failed to start (status: {}).\nLast error log entries:\n{}",
+                status,
+                recent_lines
             );
         }
 
@@ -251,16 +273,21 @@ impl MariaDbService {
 
         let mut init_cmd = Command::new(&installer);
 
+        // Capture installation output to logs/mariadb_install.log
+        let install_log_path = paths.logs_dir.join("mariadb_install.log");
+        if let Ok(log_file) = std::fs::File::create(&install_log_path) {
+            if let Ok(err_file) = log_file.try_clone() {
+                init_cmd.stdout(Stdio::from(log_file));
+                init_cmd.stderr(Stdio::from(err_file));
+            }
+        }
+
         #[cfg(windows)]
         {
             let datadir_str = datadir.to_string_lossy().replace('\\', "/");
-            init_cmd
-                .arg(format!("--datadir={}", datadir_str))
-                .arg("--password=");
+            init_cmd.arg(format!("--datadir={}", datadir_str));
             if let Some(base) = installer.parent().and_then(|p| p.parent()) {
                 init_cmd.current_dir(base);
-                let base_str = base.to_string_lossy().replace('\\', "/");
-                init_cmd.arg(format!("--basedir={}", base_str));
             }
             use std::os::windows::process::CommandExt;
             init_cmd.creation_flags(0x08000000);
@@ -275,15 +302,10 @@ impl MariaDbService {
                 .arg("--skip-test-db")
                 .arg("--force");
 
-            if let Ok(real_path) = installer.canonicalize() {
-                if !real_path.starts_with("/usr") {
-                    if let Some(base) = real_path.parent().and_then(|p| p.parent()) {
-                        if base.join("share/english").exists()
-                            || base.join("share/charsets").exists()
-                        {
-                            init_cmd.arg(format!("--basedir={}", base.to_string_lossy()));
-                        }
-                    }
+            if let Some(base) = installer.parent().and_then(|p| p.parent()) {
+                init_cmd.current_dir(base);
+                if base.join("share/english").exists() || base.join("share/charsets").exists() {
+                    init_cmd.arg(format!("--basedir={}", base.to_string_lossy()));
                 }
             }
         }
@@ -291,10 +313,13 @@ impl MariaDbService {
         let status = init_cmd
             .status()
             .with_context(|| format!("Failed to spawn DB installer {:?}", installer))?;
+        drop(init_cmd);
         if !status.success() {
+            let log_snippet = std::fs::read_to_string(&install_log_path).unwrap_or_default();
             bail!(
-                "MariaDB database initialization failed with status: {}",
-                status
+                "MariaDB database initialization failed with status: {}.\nInstaller log:\n{}",
+                status,
+                log_snippet.trim()
             );
         }
         Ok(())
