@@ -39,6 +39,59 @@ case "${TARGET}" in
         unzip -q -o "${TEMP_ZIP}" -d "${OUTPUT_DIR}"
         rm -f "${TEMP_ZIP}"
         echo "--> Windows PHP extracted to ${OUTPUT_DIR}"
+
+        # Bundle Visual C++ Runtime DLLs (vcruntime140.dll, msvcp140.dll, etc.)
+        # so PHP runs out-of-the-box on clean Windows systems without requiring external VC Redist installation.
+        echo "--> Bundling Visual C++ Runtime DLLs into ${OUTPUT_DIR}..."
+        VC_DLLS=(vcruntime140.dll vcruntime140_1.dll msvcp140.dll msvcp140_1.dll msvcp140_2.dll msvcp140_codecvt_ids.dll vcomp140.dll concrt140.dll)
+        COPIED_VC=false
+
+        for sys_dir in "/c/Windows/System32" "/c/Windows/SysWOW64" "C:/Windows/System32" "${WINDIR:-}/System32"; do
+            if [ -n "${sys_dir}" ] && [ -f "${sys_dir}/vcruntime140.dll" ]; then
+                for dll in "${VC_DLLS[@]}"; do
+                    if [ -f "${sys_dir}/${dll}" ]; then
+                        cp -f "${sys_dir}/${dll}" "${OUTPUT_DIR}/"
+                    fi
+                done
+                COPIED_VC=true
+                echo "--> VC++ Runtime DLLs bundled from ${sys_dir}"
+                break
+            fi
+        done
+
+        if [ "${COPIED_VC}" != "true" ]; then
+            echo "--> Downloading official Microsoft VC_redist.x64.exe to extract runtime DLLs..."
+            VC_REDIST_URL="https://aka.ms/vs/17/release/vc_redist.x64.exe"
+            TEMP_REDIST="$(mktemp --suffix=.exe 2>/dev/null || mktemp).exe"
+            if curl -fsSL -o "${TEMP_REDIST}" "${VC_REDIST_URL}"; then
+                VC_EXTRACT_TMP="$(mktemp -d)"
+                if command -v 7z >/dev/null 2>&1; then
+                    7z e -y "${TEMP_REDIST}" -o"${VC_EXTRACT_TMP}" "a12" >/dev/null 2>&1 || true
+                    if [ -f "${VC_EXTRACT_TMP}/a12" ]; then
+                        7z e -y "${VC_EXTRACT_TMP}/a12" -o"${VC_EXTRACT_TMP}/dlls" "*.dll*" >/dev/null 2>&1 || true
+                    fi
+                elif command -v cabextract >/dev/null 2>&1; then
+                    cabextract -q -F "a12" -d "${VC_EXTRACT_TMP}" "${TEMP_REDIST}" 2>/dev/null || true
+                    if [ -f "${VC_EXTRACT_TMP}/a12" ]; then
+                        mkdir -p "${VC_EXTRACT_TMP}/dlls"
+                        cabextract -q -d "${VC_EXTRACT_TMP}/dlls" "${VC_EXTRACT_TMP}/a12" 2>/dev/null || true
+                    fi
+                fi
+
+                if [ -d "${VC_EXTRACT_TMP}/dlls" ]; then
+                    for f in "${VC_EXTRACT_TMP}/dlls"/*; do
+                        fname="$(basename "$f")"
+                        clean_name="${fname%%_amd64}"
+                        clean_name="${clean_name%%_arm64}"
+                        if [[ "${clean_name}" == *.dll ]]; then
+                            cp -f "$f" "${OUTPUT_DIR}/${clean_name}"
+                        fi
+                    done
+                    echo "--> VC++ Runtime DLLs extracted and bundled into ${OUTPUT_DIR}"
+                fi
+                rm -rf "${VC_EXTRACT_TMP}" "${TEMP_REDIST}"
+            fi
+        fi
         ;;
 
     linux-x86_64|macos-arm64|macos-x86_64)

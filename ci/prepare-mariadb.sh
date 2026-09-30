@@ -40,6 +40,19 @@ case "${TARGET}" in
         # Copy required DLLs from bin
         cp "${SRC_DIR}"/bin/*.dll "${OUTPUT_DIR}/bin/" 2>/dev/null || true
 
+        # Copy VC++ runtime DLLs if running on Windows host
+        VC_DLLS=(vcruntime140.dll vcruntime140_1.dll msvcp140.dll msvcp140_1.dll msvcp140_2.dll msvcp140_codecvt_ids.dll vcomp140.dll concrt140.dll)
+        for sys_dir in "/c/Windows/System32" "/c/Windows/SysWOW64" "C:/Windows/System32" "${WINDIR:-}/System32"; do
+            if [ -n "${sys_dir}" ] && [ -f "${sys_dir}/vcruntime140.dll" ]; then
+                for dll in "${VC_DLLS[@]}"; do
+                    if [ -f "${sys_dir}/${dll}" ]; then
+                        cp -f "${sys_dir}/${dll}" "${OUTPUT_DIR}/bin/" 2>/dev/null || true
+                    fi
+                done
+                break
+            fi
+        done
+
         # Copy essential share files
         if [ -d "${SRC_DIR}/share" ]; then
             cp -r "${SRC_DIR}/share" "${OUTPUT_DIR}/"

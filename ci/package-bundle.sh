@@ -85,6 +85,22 @@ fi
 # Ensure executable permissions on all runtime binaries
 find "${STAGE_DIR}/runtime" -type f \( -name "*.sh" -o -name "php*" -o -name "mariadb*" -o -name "mysql*" -o -name "nginx*" -o -name "my_print_defaults" -o -name "resolveip" \) -exec chmod +x {} + 2>/dev/null || true
 
+# On Windows, ensure VC++ runtime DLLs are placed in root (for Launcher) and mariadb/bin as well
+if [[ "${TARGET}" == windows* ]]; then
+    PHP_RUNTIME_DIR="${STAGE_DIR}/runtime/${TARGET}/php"
+    if [ -d "${PHP_RUNTIME_DIR}" ]; then
+        for dll in "${PHP_RUNTIME_DIR}"/vcruntime*.dll "${PHP_RUNTIME_DIR}"/msvcp*.dll "${PHP_RUNTIME_DIR}"/vcomp*.dll "${PHP_RUNTIME_DIR}"/concrt*.dll; do
+            if [ -f "${dll}" ]; then
+                cp -f "${dll}" "${STAGE_DIR}/" 2>/dev/null || true
+                if [ -d "${STAGE_DIR}/runtime/${TARGET}/mariadb/bin" ]; then
+                    cp -f "${dll}" "${STAGE_DIR}/runtime/${TARGET}/mariadb/bin/" 2>/dev/null || true
+                fi
+            fi
+        done
+        echo "--> Propagated VC++ runtime DLLs to launcher root and MariaDB bin"
+    fi
+fi
+
 # 4. PrestaShop Core into app/
 mkdir -p "${STAGE_DIR}/app"
 if [ -d "${ROOT_DIR}/prestashop" ] && [ -f "${ROOT_DIR}/prestashop/autoload.php" ]; then
