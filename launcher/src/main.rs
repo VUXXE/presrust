@@ -257,7 +257,11 @@ fn reinstall_prestashop(state: State<'_, AppRuntime>) -> Result<(), String> {
                     let path = entry.path();
                     if path.is_dir() {
                         if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                            if name.starts_with("admin") && name != "admin" && name != "admin-api" && name != "admin-dev" {
+                            if name.starts_with("admin")
+                                && name != "admin"
+                                && name != "admin-api"
+                                && name != "admin-dev"
+                            {
                                 let admin_dir = app_dir.join("admin");
                                 if !admin_dir.exists() {
                                     let _ = std::fs::rename(&path, &admin_dir);

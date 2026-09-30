@@ -71,15 +71,15 @@ fi
 
 # 2. Config templates
 mkdir -p "${STAGE_DIR}/config"
-cp -r "${ROOT_DIR}/config"/* "${STAGE_DIR}/config/"
+cp -r "${ROOT_DIR}/config/." "${STAGE_DIR}/config/"
 rm -f "${STAGE_DIR}/config/nginx.conf" "${STAGE_DIR}/config/php.ini"
 
 # 3. Runtime Binaries
 mkdir -p "${STAGE_DIR}/runtime/${TARGET}"
 if [ -d "${ROOT_DIR}/build/runtime/${TARGET}" ]; then
-    cp -r "${ROOT_DIR}/build/runtime/${TARGET}"/* "${STAGE_DIR}/runtime/${TARGET}/"
+    cp -r "${ROOT_DIR}/build/runtime/${TARGET}/." "${STAGE_DIR}/runtime/${TARGET}/"
 elif [ -d "${ROOT_DIR}/runtime/${TARGET}" ]; then
-    cp -r "${ROOT_DIR}/runtime/${TARGET}"/* "${STAGE_DIR}/runtime/${TARGET}/"
+    cp -r "${ROOT_DIR}/runtime/${TARGET}/." "${STAGE_DIR}/runtime/${TARGET}/"
 fi
 
 # Ensure executable permissions on all runtime binaries
@@ -89,10 +89,10 @@ find "${STAGE_DIR}/runtime" -type f \( -name "*.sh" -o -name "php*" -o -name "ma
 mkdir -p "${STAGE_DIR}/app"
 if [ -d "${ROOT_DIR}/prestashop" ] && [ -f "${ROOT_DIR}/prestashop/autoload.php" ]; then
     echo "--> Copying PrestaShop from local prestashop/ directory..."
-    cp -r "${ROOT_DIR}/prestashop"/* "${STAGE_DIR}/app/"
+    cp -r "${ROOT_DIR}/prestashop/." "${STAGE_DIR}/app/"
 elif [ -d "${ROOT_DIR}/app" ] && [ -f "${ROOT_DIR}/app/autoload.php" ]; then
     echo "--> Copying PrestaShop from local app/ directory..."
-    cp -r "${ROOT_DIR}/app"/* "${STAGE_DIR}/app/"
+    cp -r "${ROOT_DIR}/app/." "${STAGE_DIR}/app/"
 else
     echo "--> Downloading PrestaShop ${PRESTASHOP_VERSION} core archive..."
     # NOTE: PrestaShop 9.x GitHub releases ship no assets, so the core
@@ -108,7 +108,7 @@ else
     if [ -f "${EXTRACT_TMP}/prestashop.zip" ]; then
         unzip -q "${EXTRACT_TMP}/prestashop.zip" -d "${STAGE_DIR}/app"
     else
-        cp -r "${EXTRACT_TMP}"/* "${STAGE_DIR}/app/"
+        cp -r "${EXTRACT_TMP}/." "${STAGE_DIR}/app/"
     fi
     rm -rf "${EXTRACT_TMP}" "${TEMP_PS_ZIP}"
 fi

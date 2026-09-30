@@ -90,6 +90,18 @@ impl EnvPaths {
             if !download_index.exists() {
                 let _ = fs::write(&download_index, "<?php\n");
             }
+
+            // Ensure PrestaShop .env file exists to prevent Symfony Dotenv PathException crashes
+            let env_path = app_dir.join(".env");
+            if !env_path.exists() {
+                let env_dist = app_dir.join(".env.dist");
+                if env_dist.exists() {
+                    let _ = fs::copy(&env_dist, &env_path);
+                } else {
+                    let default_env = "# PrestaShop environment configuration\nPS_FF_FRONT_CONTAINER_V2=false\nPS_TRUSTED_PROXIES=\n";
+                    let _ = fs::write(&env_path, default_env);
+                }
+            }
         }
 
         let paths = Self {
