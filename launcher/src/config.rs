@@ -160,7 +160,12 @@ impl EnvPaths {
                 #[cfg(target_os = "macos")]
                 {
                     let _ = std::process::Command::new("xattr")
-                        .args(["-r", "-d", "com.apple.quarantine", &self.runtime_dir.to_string_lossy()])
+                        .args([
+                            "-r",
+                            "-d",
+                            "com.apple.quarantine",
+                            &self.runtime_dir.to_string_lossy(),
+                        ])
                         .status();
                 }
             }

@@ -20,6 +20,8 @@ fi
 NGINX_VERSION="${NGINX_VERSION:-1.26.3}"
 
 echo "==> Building/Fetching Nginx ${NGINX_VERSION} for ${TARGET}..."
+chmod -R u+w "${OUTPUT_DIR}" 2>/dev/null || true
+rm -rf "${OUTPUT_DIR}"
 mkdir -p "${OUTPUT_DIR}"
 
 case "${TARGET}" in

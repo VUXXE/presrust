@@ -15,6 +15,8 @@ fi
 MARIADB_VERSION="${MARIADB_VERSION:-11.4.5}"
 
 echo "==> Preparing stripped MariaDB ${MARIADB_VERSION} for ${TARGET}..."
+chmod -R u+w "${OUTPUT_DIR}" 2>/dev/null || true
+rm -rf "${OUTPUT_DIR}"
 mkdir -p "${OUTPUT_DIR}"
 
 BASE_URL="https://archive.mariadb.org/mariadb-${MARIADB_VERSION}"
@@ -127,18 +129,18 @@ case "${TARGET}" in
             echo "--> Extracting from Homebrew MariaDB at ${M_DIR}..."
             for b in mariadbd mariadb mariadb-install-db mysqladmin mariadb-admin; do
                 if [ -f "${M_DIR}/bin/${b}" ]; then
-                    cp "${M_DIR}/bin/${b}" "${OUTPUT_DIR}/bin/"
+                    cp -f "${M_DIR}/bin/${b}" "${OUTPUT_DIR}/bin/"
                 fi
             done
             if [ -d "${M_DIR}/share/mariadb" ]; then
-                cp -r "${M_DIR}/share/mariadb" "${OUTPUT_DIR}/share/"
+                cp -r -f "${M_DIR}/share/mariadb" "${OUTPUT_DIR}/share/"
             fi
         fi
 
         # Fallback to system PATH
         for b in mariadbd mariadb mariadb-install-db mysqladmin mariadb-admin; do
             if [ ! -f "${OUTPUT_DIR}/bin/${b}" ] && command -v "${b}" >/dev/null 2>&1; then
-                cp "$(command -v "${b}")" "${OUTPUT_DIR}/bin/"
+                cp -f "$(command -v "${b}")" "${OUTPUT_DIR}/bin/"
             fi
         done
         chmod +x "${OUTPUT_DIR}/bin"/* 2>/dev/null || true

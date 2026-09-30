@@ -18,6 +18,8 @@ PHP_SERIES="${PHP_VERSION%.*}" # e.g. 8.4
 SPC_VERSION="${STATIC_PHP_CLI_VERSION:-2.5.0}"
 
 echo "==> Building/Fetching PHP ${PHP_VERSION} for ${TARGET}..."
+chmod -R u+w "${OUTPUT_DIR}" 2>/dev/null || true
+rm -rf "${OUTPUT_DIR}"
 mkdir -p "${OUTPUT_DIR}"
 
 REQUIRED_EXTENSIONS="pdo,pdo_mysql,mysqli,curl,gd,intl,zip,fileinfo,mbstring,openssl,iconv,simplexml,dom,xml,xmlwriter,ctype,tokenizer,session,filter,hash,opcache,sodium,bcmath"
