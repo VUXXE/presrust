@@ -21,6 +21,8 @@ max_execution_time = 300
 max_input_time = 300
 max_input_vars = 5000
 memory_limit = 512M
+realpath_cache_size = 5M
+realpath_cache_ttl = 7200
 
 ;; Error handling and logging
 error_reporting = E_ALL & ~E_DEPRECATED & ~E_STRICT
@@ -98,11 +100,11 @@ opcache.enable_file_override = 0
 
 ;; cURL CA bundle if needed
 [curl]
-; curl.cainfo = "{{ROOT}}/config/cacert.pem"
+curl.cainfo = "{{ROOT}}/config/cacert.pem"
 
 ;; OpenSSL
 [openssl]
-; openssl.cafile = "{{ROOT}}/config/cacert.pem"
+openssl.cafile = "{{ROOT}}/config/cacert.pem"
 
 ;; Dynamic Extensions (Windows)
 {{PHP_EXTENSIONS}}

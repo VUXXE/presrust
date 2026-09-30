@@ -121,6 +121,21 @@ impl PhpService {
             .stdout(Stdio::null())
             .stderr(Stdio::null());
 
+        let openssl_cnf = paths.config_dir.join("openssl.cnf");
+        if openssl_cnf.exists() {
+            cmd.env("OPENSSL_CONF", &openssl_cnf);
+        } else if let Some(bin_dir) = bin.parent() {
+            let bundled_cnf = bin_dir.join("extras/ssl/openssl.cnf");
+            if bundled_cnf.exists() {
+                cmd.env("OPENSSL_CONF", &bundled_cnf);
+            }
+        }
+
+        let cacert_pem = paths.config_dir.join("cacert.pem");
+        if cacert_pem.exists() {
+            cmd.env("SSL_CERT_FILE", &cacert_pem);
+        }
+
         #[cfg(windows)]
         {
             use std::os::windows::process::CommandExt;
