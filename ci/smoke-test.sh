@@ -106,6 +106,16 @@ if [[ "${TARGET}" == windows* ]]; then
     if [ -f "${PHP_BIN}" ]; then
         echo "--> Testing Windows PHP binary: ${PHP_BIN} -v"
         "${PHP_BIN}" -v
+
+        EXT_DIR="${STAGE_DIR}/runtime/${TARGET}/php/ext"
+        if [ -d "${EXT_DIR}" ]; then
+            echo "--> Testing Windows PHP extensions (zip, pdo_mysql, curl, gd)..."
+            "${PHP_BIN}" -d "extension_dir=${EXT_DIR}" -d "extension=zip" -d "extension=pdo_mysql" -d "extension=curl" -d "extension=gd" -m | grep -i "zip" || {
+                echo "FAIL: PHP zip extension failed to load on Windows!" >&2
+                exit 1
+            }
+            echo "--> Windows PHP zip extension verified!"
+        fi
     fi
 
     NGINX_BIN="${STAGE_DIR}/runtime/${TARGET}/nginx/nginx.exe"

@@ -229,7 +229,69 @@ impl EnvPaths {
         };
 
         let root_str = self.root_dir.to_string_lossy().replace('\\', "/");
-        let active_content = content.replace("{{ROOT}}", &root_str);
+        let mut active_content = content.replace("{{ROOT}}", &root_str);
+
+        // Resolve PHP extensions directory if present (e.g. Windows precompiled PHP)
+        let mut extensions_block = String::new();
+        let mut ext_dir = None;
+        for sub in &["windows-x86_64/php/ext", "php/ext"] {
+            let candidate = self.runtime_dir.join(sub);
+            if candidate.exists() {
+                ext_dir = Some(candidate);
+                break;
+            }
+        }
+        if ext_dir.is_none() {
+            if let Ok(entries) = std::fs::read_dir(&self.runtime_dir) {
+                for entry in entries.flatten() {
+                    let candidate = entry.path().join("php/ext");
+                    if candidate.exists() {
+                        ext_dir = Some(candidate);
+                        break;
+                    }
+                }
+            }
+        }
+
+        if let Some(ext_path) = ext_dir {
+            let ext_str = ext_path.to_string_lossy().replace('\\', "/");
+            extensions_block.push_str(&format!("extension_dir = \"{}\"\n", ext_str));
+
+            let exts = [
+                "curl",
+                "fileinfo",
+                "gd",
+                "intl",
+                "mbstring",
+                "mysqli",
+                "openssl",
+                "pdo_mysql",
+                "soap",
+                "sockets",
+                "sodium",
+                "sqlite3",
+                "exif",
+                "zip",
+            ];
+
+            for ext in &exts {
+                let dll_name = format!("php_{}.dll", ext);
+                if ext_path.join(&dll_name).exists() {
+                    extensions_block.push_str(&format!("extension={}\n", ext));
+                }
+            }
+
+            if ext_path.join("php_opcache.dll").exists() {
+                extensions_block.push_str("zend_extension=opcache\n");
+            }
+        }
+
+        if active_content.contains("{{PHP_EXTENSIONS}}") {
+            active_content = active_content.replace("{{PHP_EXTENSIONS}}", &extensions_block);
+        } else if !extensions_block.is_empty() {
+            active_content.push_str("\n;; Dynamic Extensions\n");
+            active_content.push_str(&extensions_block);
+        }
 
         fs::write(&active_path, active_content)
             .with_context(|| format!("Failed to write active php.ini to {:?}", active_path))?;
@@ -331,5 +393,28 @@ mod tests {
         assert_eq!(admin, Some("admin982a1f".to_string()));
 
         let _ = fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_generate_php_ini_with_extensions() {
+        let temp_dir = std::env::temp_dir().join(format!("test_ext_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&temp_dir);
+        let ext_dir = temp_dir.join("runtime/php/ext");
+        fs::create_dir_all(&ext_dir).unwrap();
+        fs::write(ext_dir.join("php_zip.dll"), "").unwrap();
+        fs::write(ext_dir.join("php_curl.dll"), "").unwrap();
+
+        let mut paths = EnvPaths::resolve().expect("Should resolve env paths");
+        paths.runtime_dir = temp_dir.join("runtime");
+        let php_ini = paths.generate_php_ini().expect("Should generate php.ini");
+        let ini_content = fs::read_to_string(&php_ini).unwrap();
+        assert!(ini_content.contains("extension=zip"));
+        assert!(ini_content.contains("extension=curl"));
+        assert!(ini_content.contains("extension_dir ="));
+
+        let _ = fs::remove_dir_all(&temp_dir);
+        // Regenerate clean php.ini
+        let orig_paths = EnvPaths::resolve().expect("Should resolve env paths");
+        let _ = orig_paths.generate_php_ini();
     }
 }

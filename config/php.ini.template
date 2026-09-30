@@ -103,3 +103,7 @@ opcache.enable_file_override = 0
 ;; OpenSSL
 [openssl]
 ; openssl.cafile = "{{ROOT}}/config/cacert.pem"
+
+;; Dynamic Extensions (Windows)
+{{PHP_EXTENSIONS}}
+
