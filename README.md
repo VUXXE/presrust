@@ -1,13 +1,13 @@
 # PrestaShop Portable
 
-[![Dev Build](https://github.com/VUXXE/presrust/actions/workflows/dev-build.yml/badge.svg)](https://github.com/VUXXE/presrust/actions/workflows/dev-build.yml)
-[![Release](https://github.com/VUXXE/presrust/actions/workflows/release.yml/badge.svg)](https://github.com/VUXXE/presrust/actions/workflows/release.yml)
+[![Dev Build](https://github.com/VUXXE/prestashop-portable-rust/actions/workflows/dev-build.yml/badge.svg)](https://github.com/VUXXE/prestashop-portable-rust/actions/workflows/dev-build.yml)
+[![Release](https://github.com/VUXXE/prestashop-portable-rust/actions/workflows/release.yml/badge.svg)](https://github.com/VUXXE/prestashop-portable-rust/actions/workflows/release.yml)
 
 Self-contained **PrestaShop 9** that runs without system installs on Windows, Linux, and macOS. One desktop launcher controls everything (Nginx, PHP, MariaDB).
 
 ## Download & Run
 
-1. Download the `.zip` / `.tar.xz` for your OS from [Releases](https://github.com/VUXXE/presrust/releases) and extract it anywhere.
+1. Download the `.zip` for your OS from [Releases](https://github.com/VUXXE/prestashop-portable-rust/releases) and extract it anywhere.
 2. Run `PrestaShopLauncher` and click **Start Services**.
 3. Click **Start Shop Setup**, complete the wizard in your browser (DB credentials are shown in the app), then use **Admin Login**.
 

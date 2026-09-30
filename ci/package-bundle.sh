@@ -98,7 +98,7 @@ else
     # NOTE: PrestaShop 9.x GitHub releases ship no assets, so the core
     # archive is pinned as a release asset in this repo (see release
     # prestashop-core-<version>).
-    PS_URL="https://github.com/VUXXE/presrust/releases/download/prestashop-core-${PRESTASHOP_VERSION}/prestashop.zip"
+    PS_URL="https://github.com/VUXXE/prestashop-portable-rust/releases/download/prestashop-core-${PRESTASHOP_VERSION}/prestashop.zip"
     TEMP_PS_ZIP="$(mktemp --suffix=.zip 2>/dev/null || mktemp).zip"
     curl -fsSL -o "${TEMP_PS_ZIP}" "${PS_URL}"
     
