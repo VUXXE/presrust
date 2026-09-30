@@ -79,6 +79,18 @@ impl MariaDbService {
         }
 
         let bin = Self::find_binary(paths)?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            if let Ok(metadata) = bin.metadata() {
+                let mut perms = metadata.permissions();
+                let mode = perms.mode();
+                if mode & 0o111 != 0o111 {
+                    perms.set_mode(mode | 0o755);
+                    let _ = std::fs::set_permissions(&bin, perms);
+                }
+            }
+        }
         let datadir = paths.data_dir.join("mariadb");
         let error_log = paths.logs_dir.join("mariadb_error.log");
 
@@ -185,12 +197,26 @@ impl MariaDbService {
         }
 
         if let Some(installer) = install_bin {
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                if let Ok(metadata) = installer.metadata() {
+                    let mut perms = metadata.permissions();
+                    let mode = perms.mode();
+                    if mode & 0o111 != 0o111 {
+                        perms.set_mode(mode | 0o755);
+                        let _ = std::fs::set_permissions(&installer, perms);
+                    }
+                }
+            }
+
             let mut init_cmd = Command::new(&installer);
             init_cmd
                 .arg("--no-defaults")
                 .arg(format!("--datadir={}", datadir.to_string_lossy()))
                 .arg("--auth-root-authentication-method=normal")
-                .arg("--skip-test-db");
+                .arg("--skip-test-db")
+                .arg("--force");
 
             if let Ok(real_path) = installer.canonicalize() {
                 if !real_path.starts_with("/usr") {
@@ -210,7 +236,10 @@ impl MariaDbService {
                 init_cmd.creation_flags(0x08000000);
             }
 
-            let _ = init_cmd.status();
+            let status = init_cmd.status();
+            if let Err(e) = status {
+                eprintln!("Warning: Failed to execute DB initialization: {}", e);
+            }
         }
         Ok(())
     }

@@ -5,7 +5,7 @@ TARGET="${1:-linux-x86_64}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-STAGE_DIR="${ROOT_DIR}/build/stage/prestashop-portable-${TARGET}"
+STAGE_DIR="${STAGE_DIR:-${ROOT_DIR}/build/stage/prestashop-portable-${TARGET}}"
 
 echo "==> Running Smoke Tests for ${TARGET} in ${STAGE_DIR}..."
 
@@ -47,25 +47,41 @@ if [[ "$(uname -s)" == "Linux" && "${TARGET}" == "linux-x86_64" ]] || \
     PHP_BIN="${STAGE_DIR}/runtime/${TARGET}/php/php-fpm"
     if [ -f "${PHP_BIN}" ]; then
         echo "--> Testing PHP binary: ${PHP_BIN} -v"
-        "${PHP_BIN}" -v || true
+        [ -x "${PHP_BIN}" ] || { echo "FAIL: ${PHP_BIN} is not executable!" >&2; exit 1; }
+        PHP_INI_SCAN_DIR="" "${PHP_BIN}" -v
     fi
 
     PHP_BIN="${STAGE_DIR}/runtime/${TARGET}/php/php-cgi"
     if [ -f "${PHP_BIN}" ]; then
         echo "--> Testing PHP binary: ${PHP_BIN} -v"
-        "${PHP_BIN}" -v || true
+        [ -x "${PHP_BIN}" ] || { echo "FAIL: ${PHP_BIN} is not executable!" >&2; exit 1; }
+        PHP_INI_SCAN_DIR="" "${PHP_BIN}" -v
     fi
 
     NGINX_BIN="${STAGE_DIR}/runtime/${TARGET}/nginx/sbin/nginx"
     if [ -f "${NGINX_BIN}" ]; then
         echo "--> Testing Nginx binary: ${NGINX_BIN} -v"
-        "${NGINX_BIN}" -v || true
+        [ -x "${NGINX_BIN}" ] || { echo "FAIL: ${NGINX_BIN} is not executable!" >&2; exit 1; }
+        "${NGINX_BIN}" -v
     fi
 
     MARIADB_BIN="${STAGE_DIR}/runtime/${TARGET}/mariadb/bin/mariadbd"
     if [ -f "${MARIADB_BIN}" ]; then
         echo "--> Testing MariaDB binary: ${MARIADB_BIN} --version"
-        "${MARIADB_BIN}" --version || true
+        [ -x "${MARIADB_BIN}" ] || { echo "FAIL: ${MARIADB_BIN} is not executable!" >&2; exit 1; }
+        "${MARIADB_BIN}" --version
+    fi
+
+    # Check DB install script/binary
+    INSTALL_DB=""
+    if [ -f "${STAGE_DIR}/runtime/${TARGET}/mariadb/bin/mariadb-install-db" ]; then
+        INSTALL_DB="${STAGE_DIR}/runtime/${TARGET}/mariadb/bin/mariadb-install-db"
+    elif [ -f "${STAGE_DIR}/runtime/${TARGET}/mariadb/scripts/mysql_install_db" ]; then
+        INSTALL_DB="${STAGE_DIR}/runtime/${TARGET}/mariadb/scripts/mysql_install_db"
+    fi
+    if [ -n "${INSTALL_DB}" ]; then
+        echo "--> Checking MariaDB installer: ${INSTALL_DB}"
+        [ -x "${INSTALL_DB}" ] || { echo "FAIL: ${INSTALL_DB} is not executable!" >&2; exit 1; }
     fi
 fi
 
@@ -73,20 +89,20 @@ if [[ "${TARGET}" == windows* ]]; then
     PHP_BIN="${STAGE_DIR}/runtime/${TARGET}/php/php-cgi.exe"
     if [ -f "${PHP_BIN}" ]; then
         echo "--> Testing Windows PHP binary: ${PHP_BIN} -v"
-        "${PHP_BIN}" -v || true
+        "${PHP_BIN}" -v
     fi
 
     NGINX_BIN="${STAGE_DIR}/runtime/${TARGET}/nginx/nginx.exe"
     if [ -f "${NGINX_BIN}" ]; then
         echo "--> Testing Windows Nginx binary: ${NGINX_BIN} -v"
-        "${NGINX_BIN}" -v || true
+        "${NGINX_BIN}" -v
     fi
 
     MARIADB_BIN="${STAGE_DIR}/runtime/${TARGET}/mariadb/bin/mariadbd.exe"
     [ -f "${MARIADB_BIN}" ] || MARIADB_BIN="${STAGE_DIR}/runtime/${TARGET}/mariadb/bin/mysqld.exe"
     if [ -f "${MARIADB_BIN}" ]; then
         echo "--> Testing Windows MariaDB binary: ${MARIADB_BIN} --version"
-        "${MARIADB_BIN}" --version || true
+        "${MARIADB_BIN}" --version
     fi
 fi
 

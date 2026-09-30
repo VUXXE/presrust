@@ -82,6 +82,9 @@ elif [ -d "${ROOT_DIR}/runtime/${TARGET}" ]; then
     cp -r "${ROOT_DIR}/runtime/${TARGET}"/* "${STAGE_DIR}/runtime/${TARGET}/"
 fi
 
+# Ensure executable permissions on all runtime binaries
+find "${STAGE_DIR}/runtime" -type f \( -name "*.sh" -o -name "php*" -o -name "mariadb*" -o -name "mysql*" -o -name "nginx*" -o -name "my_print_defaults" -o -name "resolveip" \) -exec chmod +x {} + 2>/dev/null || true
+
 # 4. PrestaShop Core into app/
 mkdir -p "${STAGE_DIR}/app"
 if [ -d "${ROOT_DIR}/prestashop" ] && [ -f "${ROOT_DIR}/prestashop/autoload.php" ]; then
@@ -129,11 +132,14 @@ echo "--> Creating final archive: ${DIST_DIR}/${ARCHIVE_NAME}.${EXT}"
 pushd "${ROOT_DIR}/build/stage" > /dev/null
 case "${EXT}" in
     zip)
-        if command -v 7z >/dev/null 2>&1; then
+        if command -v zip >/dev/null 2>&1; then
+            zip -r -q "${DIST_DIR}/${ARCHIVE_NAME}.zip" "${ARCHIVE_NAME}"
+        elif command -v 7z >/dev/null 2>&1; then
             # Windows runners lack zip(1); 7-Zip is preinstalled there.
             7z a -tzip "${DIST_DIR}/${ARCHIVE_NAME}.zip" "${ARCHIVE_NAME}" > /dev/null
         else
-            zip -r -q "${DIST_DIR}/${ARCHIVE_NAME}.zip" "${ARCHIVE_NAME}"
+            echo "Error: Neither zip nor 7z found" >&2
+            exit 1
         fi
         ;;
     tar.xz)

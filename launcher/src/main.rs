@@ -25,6 +25,7 @@ pub struct AppStateDto {
     pub db_name: String,
     pub web_port: u16,
     pub php_port: u16,
+    pub app_version: String,
 }
 
 pub struct AppRuntime {
@@ -54,6 +55,7 @@ fn get_app_state(state: State<'_, AppRuntime>) -> AppStateDto {
         db_name: "prestashop".into(),
         web_port: cfg.web_port,
         php_port: cfg.php_port,
+        app_version: env!("CARGO_PKG_VERSION").to_string(),
     }
 }
 
@@ -64,23 +66,22 @@ fn start_services(state: State<'_, AppRuntime>) -> Result<(), String> {
         *busy = true;
     }
 
-    let pm = state.pm.clone();
-    let paths = state.paths.clone();
-    let busy_clone = state.is_busy.clone();
+    state.paths.ensure_runtime_permissions();
 
-    std::thread::spawn(move || {
-        let start_res = {
-            let mut manager = pm.lock().unwrap();
-            manager.start_all(&paths)
-        };
-        let mut busy = busy_clone.lock().unwrap();
+    let res = {
+        let mut manager = state.pm.lock().unwrap();
+        manager.start_all(&state.paths)
+    };
+
+    {
+        let mut busy = state.is_busy.lock().unwrap();
         *busy = false;
-        if let Err(e) = start_res {
-            eprintln!("Failed to start services: {}", e);
-        }
-    });
+    }
 
-    Ok(())
+    res.map_err(|e| {
+        eprintln!("Failed to start services: {:#}", e);
+        format!("{:#}", e)
+    })
 }
 
 #[tauri::command]
@@ -90,22 +91,20 @@ fn stop_services(state: State<'_, AppRuntime>) -> Result<(), String> {
         *busy = true;
     }
 
-    let pm = state.pm.clone();
-    let busy_clone = state.is_busy.clone();
+    let res = {
+        let mut manager = state.pm.lock().unwrap();
+        manager.stop_all()
+    };
 
-    std::thread::spawn(move || {
-        let stop_res = {
-            let mut manager = pm.lock().unwrap();
-            manager.stop_all()
-        };
-        let mut busy = busy_clone.lock().unwrap();
+    {
+        let mut busy = state.is_busy.lock().unwrap();
         *busy = false;
-        if let Err(e) = stop_res {
-            eprintln!("Failed to stop services: {}", e);
-        }
-    });
+    }
 
-    Ok(())
+    res.map_err(|e| {
+        eprintln!("Failed to stop services: {:#}", e);
+        format!("{:#}", e)
+    })
 }
 
 #[tauri::command]

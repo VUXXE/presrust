@@ -20,7 +20,8 @@ let appState = {
   dbUser: "root",
   dbName: "prestashop",
   webPort: 8080,
-  phpPort: 9000
+  phpPort: 9000,
+  appVersion: "0.5.1"
 };
 
 let logHistory = [];
@@ -184,6 +185,9 @@ function renderUI() {
   }
 
   // Footer Controls
+  if (appState.appVersion && versionTag) {
+    versionTag.textContent = `v${appState.appVersion} (Rust)`;
+  }
   btnOpenLogsFolder.style.display = isLogViewActive ? "flex" : "none";
   if (!isRunning && !isLogViewActive) {
     versionTag.style.display = "block";

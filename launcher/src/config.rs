@@ -92,7 +92,7 @@ impl EnvPaths {
             }
         }
 
-        Ok(Self {
+        let paths = Self {
             root_dir,
             app_dir,
             runtime_dir,
@@ -100,7 +100,52 @@ impl EnvPaths {
             logs_dir,
             data_dir,
             tmp_dir,
-        })
+        };
+        paths.ensure_runtime_permissions();
+
+        Ok(paths)
+    }
+
+    /// Recursively ensures executable permissions on runtime binaries on Unix systems
+    pub fn ensure_runtime_permissions(&self) {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fn make_exec_recursive(dir: &std::path::Path) {
+                if let Ok(entries) = std::fs::read_dir(dir) {
+                    for entry in entries.flatten() {
+                        let path = entry.path();
+                        if path.is_dir() {
+                            make_exec_recursive(&path);
+                        } else if path.is_file() {
+                            let should_exec = path
+                                .parent()
+                                .and_then(|p| p.file_name())
+                                .map(|name| {
+                                    let s = name.to_string_lossy();
+                                    s == "bin" || s == "sbin" || s == "scripts" || s == "php"
+                                })
+                                .unwrap_or(false);
+
+                            if should_exec {
+                                if let Ok(metadata) = path.metadata() {
+                                    let mut perms = metadata.permissions();
+                                    let mode = perms.mode();
+                                    if mode & 0o111 != 0o111 {
+                                        perms.set_mode(mode | 0o755);
+                                        let _ = std::fs::set_permissions(&path, perms);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if self.runtime_dir.exists() {
+                make_exec_recursive(&self.runtime_dir);
+            }
+        }
     }
 
     /// Detect active PrestaShop state:

@@ -66,12 +66,13 @@ case "${TARGET}" in
         SRC_DIR="$(find "${EXTRACT_TMP}" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
 
         mkdir -p "${OUTPUT_DIR}/bin" "${OUTPUT_DIR}/share" "${OUTPUT_DIR}/lib"
-        for bin in mariadbd mysqld mariadb mysql mariadb-admin mysqladmin mariadb-install-db mysql_install_db my_print_defaults; do
+        for bin in mariadbd mysqld mariadb mysql mariadb-admin mysqladmin mariadb-install-db mysql_install_db my_print_defaults resolveip; do
             if [ -f "${SRC_DIR}/bin/${bin}" ]; then
                 cp "${SRC_DIR}/bin/${bin}" "${OUTPUT_DIR}/bin/"
                 strip "${OUTPUT_DIR}/bin/${bin}" 2>/dev/null || true
             fi
         done
+        chmod +x "${OUTPUT_DIR}/bin"/* 2>/dev/null || true
 
         # Scripts
         if [ -f "${SRC_DIR}/scripts/mysql_install_db" ]; then
@@ -127,6 +128,7 @@ case "${TARGET}" in
                 cp "$(command -v "${b}")" "${OUTPUT_DIR}/bin/"
             fi
         done
+        chmod +x "${OUTPUT_DIR}/bin"/* 2>/dev/null || true
         ;;
 
     *)

@@ -76,6 +76,18 @@ impl NginxService {
         }
 
         let bin = Self::find_binary(paths)?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            if let Ok(metadata) = bin.metadata() {
+                let mut perms = metadata.permissions();
+                let mode = perms.mode();
+                if mode & 0o111 != 0o111 {
+                    perms.set_mode(mode | 0o755);
+                    let _ = std::fs::set_permissions(&bin, perms);
+                }
+            }
+        }
         let nginx_conf = paths.generate_nginx_conf(self.port, self.php_port)?;
 
         let mut cmd = Command::new(&bin);
