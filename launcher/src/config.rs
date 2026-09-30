@@ -156,6 +156,13 @@ impl EnvPaths {
 
             if self.runtime_dir.exists() {
                 make_exec_recursive(&self.runtime_dir);
+
+                #[cfg(target_os = "macos")]
+                {
+                    let _ = std::process::Command::new("xattr")
+                        .args(["-r", "-d", "com.apple.quarantine", &self.runtime_dir.to_string_lossy()])
+                        .status();
+                }
             }
         }
     }

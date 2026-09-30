@@ -83,6 +83,22 @@ if [[ "$(uname -s)" == "Linux" && "${TARGET}" == "linux-x86_64" ]] || \
         echo "--> Checking MariaDB installer: ${INSTALL_DB}"
         [ -x "${INSTALL_DB}" ] || { echo "FAIL: ${INSTALL_DB} is not executable!" >&2; exit 1; }
     fi
+
+    if [[ "$(uname -s)" == "Darwin" ]]; then
+        echo "--> Checking macOS binaries for non-portable Homebrew linkages..."
+        for bin in "${STAGE_DIR}/runtime/${TARGET}/php/php-fpm" \
+                   "${STAGE_DIR}/runtime/${TARGET}/nginx/sbin/nginx" \
+                   "${STAGE_DIR}/runtime/${TARGET}/mariadb/bin/mariadbd"; do
+            if [ -f "${bin}" ]; then
+                LEAKED=$(otool -L "${bin}" 2>/dev/null | grep -E "(/opt/homebrew|/usr/local)" || true)
+                if [ -n "${LEAKED}" ]; then
+                    echo "FAIL: ${bin} links directly to Homebrew path: ${LEAKED}" >&2
+                    exit 1
+                fi
+            fi
+        done
+        echo "--> All macOS binaries are clean and portable (no leaked Homebrew paths)!"
+    fi
 fi
 
 if [[ "${TARGET}" == windows* ]]; then

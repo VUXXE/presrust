@@ -63,10 +63,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev libfontconfig1-dev libx11-dev libxext-dev libxfixes-dev libxinerama-dev libxrandr-dev libxcursor-dev xz-utils musl-tools
 
-      - name: Install macOS build tools (autotools for php-src buildconf)
+      - name: Install macOS build tools (autotools and dylibbundler)
         if: runner.os == 'macOS'
         run: |
-          brew install autoconf automake libtool pkg-config || true
+          brew install autoconf automake libtool pkg-config dylibbundler || true
 
       # 2. Cache Runtime Binaries (PHP, Nginx, MariaDB)
       - name: Cache Runtime Components

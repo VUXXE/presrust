@@ -74,6 +74,32 @@ case "${TARGET}" in
         cp conf/fastcgi.conf "${OUTPUT_DIR}/conf/fastcgi.conf"
         chmod +x "${OUTPUT_DIR}/sbin/nginx"
 
+        # On macOS, bundle any dynamic libraries (e.g. OpenSSL/PCRE from Homebrew) into ${OUTPUT_DIR}/lib
+        if [[ "${TARGET}" == macos* ]]; then
+            echo "--> Bundling macOS dynamic libraries for Nginx..."
+            mkdir -p "${OUTPUT_DIR}/lib"
+            if ! command -v dylibbundler >/dev/null 2>&1 && command -v brew >/dev/null 2>&1; then
+                HOMEBREW_NO_AUTO_UPDATE=1 brew install dylibbundler || true
+            fi
+            if command -v dylibbundler >/dev/null 2>&1; then
+                dylibbundler -b -x "${OUTPUT_DIR}/sbin/nginx" -d "${OUTPUT_DIR}/lib" -p "@loader_path/../lib" -of || true
+                codesign --force --sign - "${OUTPUT_DIR}/sbin/nginx" 2>/dev/null || true
+                for d in "${OUTPUT_DIR}/lib"/*.dylib; do
+                    if [ -f "$d" ]; then
+                        codesign --force --sign - "$d" 2>/dev/null || true
+                    fi
+                done
+                echo "--> macOS Nginx dynamic libraries bundled successfully"
+            else
+                for lib in $(otool -L "${OUTPUT_DIR}/sbin/nginx" 2>/dev/null | grep -E "(/opt/homebrew|/usr/local)" | awk '{print $1}'); do
+                    libname="$(basename "${lib}")"
+                    cp -f "${lib}" "${OUTPUT_DIR}/lib/${libname}" 2>/dev/null || true
+                    install_name_tool -change "${lib}" "@loader_path/../lib/${libname}" "${OUTPUT_DIR}/sbin/nginx" 2>/dev/null || true
+                    codesign --force --sign - "${OUTPUT_DIR}/sbin/nginx" 2>/dev/null || true
+                done
+            fi
+        fi
+
         popd > /dev/null
         rm -rf "${BUILD_TMP}"
         echo "--> Nginx built successfully into ${OUTPUT_DIR}"

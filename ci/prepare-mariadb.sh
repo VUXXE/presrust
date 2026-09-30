@@ -142,6 +142,40 @@ case "${TARGET}" in
             fi
         done
         chmod +x "${OUTPUT_DIR}/bin"/* 2>/dev/null || true
+
+        # Bundle dynamic libraries (.dylib) so binaries run on clean Macs without Homebrew
+        echo "--> Bundling macOS dynamic libraries for MariaDB..."
+        mkdir -p "${OUTPUT_DIR}/lib"
+        if ! command -v dylibbundler >/dev/null 2>&1 && command -v brew >/dev/null 2>&1; then
+            HOMEBREW_NO_AUTO_UPDATE=1 brew install dylibbundler || true
+        fi
+
+        if command -v dylibbundler >/dev/null 2>&1; then
+            for b in "${OUTPUT_DIR}/bin"/*; do
+                if [ -f "$b" ] && [ -x "$b" ]; then
+                    dylibbundler -b -x "$b" -d "${OUTPUT_DIR}/lib" -p "@loader_path/../lib" -of || true
+                    codesign --force --sign - "$b" 2>/dev/null || true
+                fi
+            done
+            for d in "${OUTPUT_DIR}/lib"/*.dylib; do
+                if [ -f "$d" ]; then
+                    codesign --force --sign - "$d" 2>/dev/null || true
+                fi
+            done
+            echo "--> macOS MariaDB dynamic libraries bundled successfully"
+        else
+            echo "--> Notice: dylibbundler not available, using fallback resolver..."
+            for b in "${OUTPUT_DIR}/bin"/*; do
+                if [ -f "$b" ] && [ -x "$b" ]; then
+                    for lib in $(otool -L "$b" 2>/dev/null | grep -E "(/opt/homebrew|/usr/local)" | awk '{print $1}'); do
+                        libname="$(basename "${lib}")"
+                        cp -f "${lib}" "${OUTPUT_DIR}/lib/${libname}" 2>/dev/null || true
+                        install_name_tool -change "${lib}" "@loader_path/../lib/${libname}" "$b" 2>/dev/null || true
+                        codesign --force --sign - "$b" 2>/dev/null || true
+                    done
+                fi
+            done
+        fi
         ;;
 
     *)
