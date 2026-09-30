@@ -169,6 +169,127 @@ fn save_settings(
     Ok(())
 }
 
+#[tauri::command]
+fn reinstall_prestashop(state: State<'_, AppRuntime>) -> Result<(), String> {
+    {
+        let mut busy = state.is_busy.lock().unwrap();
+        *busy = true;
+    }
+
+    let res = (|| -> anyhow::Result<()> {
+        let was_running = {
+            let mut manager = state.pm.lock().unwrap();
+            let running = manager.is_running();
+            if running {
+                let _ = manager.stop_all();
+            }
+            running
+        };
+
+        std::thread::sleep(std::time::Duration::from_millis(600));
+
+        // 1. Clean temporary lock/pid/session files
+        let tmp_dir = &state.paths.tmp_dir;
+        let _ = std::fs::remove_file(tmp_dir.join("mysql.sock"));
+        let _ = std::fs::remove_file(tmp_dir.join("mariadb.pid"));
+        let _ = std::fs::remove_file(tmp_dir.join("nginx.pid"));
+        let _ = std::fs::remove_file(tmp_dir.join("php.pid"));
+
+        let sessions = tmp_dir.join("sessions");
+        if sessions.exists() {
+            let _ = std::fs::remove_dir_all(&sessions);
+            let _ = std::fs::create_dir_all(&sessions);
+        }
+
+        let uploads = tmp_dir.join("uploads");
+        if uploads.exists() {
+            let _ = std::fs::remove_dir_all(&uploads);
+            let _ = std::fs::create_dir_all(&uploads);
+        }
+
+        // 2. Reset database data
+        let db_dir = state.paths.data_dir.join("mariadb/prestashop");
+        if db_dir.exists() {
+            let _ = std::fs::remove_dir_all(&db_dir);
+        }
+
+        // 3. Reset PrestaShop generated files, caches, and parameters
+        let app_dir = &state.paths.app_dir;
+        if app_dir.exists() {
+            let param_candidates = [
+                app_dir.join("app/config/parameters.php"),
+                app_dir.join("config/parameters.php"),
+                app_dir.join("app/config/parameters.yml"),
+            ];
+            for p in &param_candidates {
+                if p.exists() {
+                    let _ = std::fs::remove_file(p);
+                }
+            }
+
+            let cache_dir = app_dir.join("var/cache");
+            if cache_dir.exists() {
+                let _ = std::fs::remove_dir_all(&cache_dir);
+                let _ = std::fs::create_dir_all(&cache_dir);
+            }
+
+            let var_logs = app_dir.join("var/logs");
+            if var_logs.exists() {
+                let _ = std::fs::remove_dir_all(&var_logs);
+                let _ = std::fs::create_dir_all(&var_logs);
+            }
+
+            // Restore /install if renamed (e.g. install_bak, install.bak)
+            let install_dir = app_dir.join("install");
+            if !install_dir.exists() {
+                for backup_name in &["install_bak", "install.bak", "install_old", "install.old"] {
+                    let backup_path = app_dir.join(backup_name);
+                    if backup_path.exists() {
+                        let _ = std::fs::rename(&backup_path, &install_dir);
+                        break;
+                    }
+                }
+            }
+
+            // Restore /admin if renamed
+            if let Ok(entries) = std::fs::read_dir(app_dir) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.is_dir() {
+                        if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                            if name.starts_with("admin") && name != "admin" && name != "admin-api" && name != "admin-dev" {
+                                let admin_dir = app_dir.join("admin");
+                                if !admin_dir.exists() {
+                                    let _ = std::fs::rename(&path, &admin_dir);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 4. Ensure permissions
+        state.paths.ensure_runtime_permissions();
+
+        // 5. Restart services if they were running
+        if was_running {
+            let mut manager = state.pm.lock().unwrap();
+            manager.start_all(&state.paths)?;
+        }
+
+        Ok(())
+    })();
+
+    {
+        let mut busy = state.is_busy.lock().unwrap();
+        *busy = false;
+    }
+
+    res.map_err(|e| e.to_string())
+}
+
 fn main() {
     let paths = Arc::new(EnvPaths::resolve().unwrap_or_else(|err| {
         eprintln!("Fatal: cannot resolve runtime paths: {}", err);
@@ -203,7 +324,8 @@ fn main() {
             open_logs_folder,
             get_logs,
             clear_logs,
-            save_settings
+            save_settings,
+            reinstall_prestashop
         ])
         .setup(move |app| {
             let app_handle = app.handle().clone();

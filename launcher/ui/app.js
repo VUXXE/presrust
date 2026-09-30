@@ -21,7 +21,7 @@ let appState = {
   dbName: "prestashop",
   webPort: 8080,
   phpPort: 9000,
-  appVersion: "0.5.1"
+  appVersion: "0.5.2"
 };
 
 let logHistory = [];
@@ -77,11 +77,14 @@ const copyLogsText = document.getElementById("copyLogsText");
 
 // Footer Elements
 const btnToggleSettings = document.getElementById("btnToggleSettings");
+const btnFooterReinstall = document.getElementById("btnFooterReinstall");
 const btnOpenLogsFolder = document.getElementById("btnOpenLogsFolder");
 const versionTag = document.getElementById("versionTag");
 const btnToggleLog = document.getElementById("btnToggleLog");
 const toggleLogArrow = document.getElementById("toggleLogArrow");
 const toggleLogText = document.getElementById("toggleLogText");
+const linkReinstall = document.getElementById("linkReinstall");
+const btnModalReinstall = document.getElementById("btnModalReinstall");
 
 // Settings Form
 const inputWebPort = document.getElementById("inputWebPort");
@@ -236,6 +239,35 @@ btnLogShop.addEventListener("click", () => invoke("open_shop"));
 btnOpenAdmin.addEventListener("click", () => invoke("open_admin"));
 btnLogAdmin.addEventListener("click", () => invoke("open_admin"));
 btnOpenLogsFolder.addEventListener("click", () => invoke("open_logs_folder"));
+
+// Reinstall / Reset Handler
+async function handleReinstall() {
+  const confirmMsg = "Reset and reinstall PrestaShop?\n\nThis will wipe the database and reset PrestaShop to a clean setup state. Use this if installation failed or if you want to start fresh.\n\nAre you sure?";
+  if (!confirm(confirmMsg)) return;
+
+  appState.isBusy = true;
+  renderUI();
+
+  try {
+    await invoke("reinstall_prestashop");
+    alert("PrestaShop has been reset!\n\nYou can now click 'Start Shop Setup' to run the setup wizard afresh.");
+  } catch (err) {
+    alert("Error resetting PrestaShop: " + err);
+  } finally {
+    appState.isBusy = false;
+    await syncState();
+  }
+}
+
+if (btnFooterReinstall) btnFooterReinstall.addEventListener("click", handleReinstall);
+if (btnModalReinstall) btnModalReinstall.addEventListener("click", () => {
+  settingsModal.style.display = "none";
+  handleReinstall();
+});
+if (linkReinstall) linkReinstall.addEventListener("click", (e) => {
+  e.preventDefault();
+  handleReinstall();
+});
 
 // 5. Copy Helpers
 btnCopyDb.addEventListener("click", () => {

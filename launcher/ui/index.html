@@ -93,7 +93,7 @@
         <!-- Footnote for State 5.2 -->
         <div class="footnote-info" id="setupFootnote" style="display: none;">
           <span class="badge-info">i</span>
-          <span>Complete the setup wizard to enable admin login</span>
+          <span>Complete setup in browser. Stuck or failed? <a href="#" id="linkReinstall" class="link-danger">Reset &amp; Reinstall</a></span>
         </div>
       </section>
 
@@ -197,6 +197,15 @@
             <label for="inputDbPort">Database Port (MariaDB):</label>
             <input type="number" id="inputDbPort" value="3306" />
           </div>
+          <div class="danger-zone">
+            <div class="danger-zone-title">Troubleshooting &amp; Reset</div>
+            <p class="danger-zone-desc">If setup failed or database is corrupted, reset to start a clean installation.</p>
+            <button class="btn-danger" id="btnModalReinstall">
+              <img src="icons/trash-gray.svg" class="icon-xs" alt="" />
+              <span>Reset &amp; Reinstall PrestaShop</span>
+            </button>
+          </div>
+
           <div class="modal-actions">
             <button class="btn-modal cancel" id="btnCancelSettings">Cancel</button>
             <button class="btn-modal save" id="btnSaveSettings">Save Ports</button>
@@ -212,13 +221,18 @@
         <span>Settings</span>
       </button>
 
+      <button class="footer-btn footer-btn-danger" id="btnFooterReinstall" title="Reset database and reinstall PrestaShop if installation failed">
+        <img src="icons/trash-gray.svg" class="icon-sm" alt="" />
+        <span>Reinstall</span>
+      </button>
+
       <button class="footer-btn" id="btnOpenLogsFolder" style="display: none;">
         <img src="icons/folder-gray.svg" class="icon-sm" alt="" />
         <span>Open Logs Folder</span>
       </button>
 
       <div class="footer-right">
-        <span class="version-tag" id="versionTag">v0.5.1 (Rust)</span>
+        <span class="version-tag" id="versionTag">v0.5.2 (Rust)</span>
         <button class="footer-toggle-log" id="btnToggleLog" style="display: none;">
           <span id="toggleLogArrow">▼</span>
           <span id="toggleLogText">Show Logs</span>

@@ -692,3 +692,61 @@ body {
 .icon-xs { width: 12px; height: 12px; }
 .icon-btn { width: 16px; height: 16px; }
 .icon-action { width: 14px; height: 14px; }
+
+/* Reinstall & Danger Zone */
+.footer-btn-danger:hover {
+  color: #dc2626 !important;
+}
+
+.link-danger {
+  color: #dc2626;
+  text-decoration: underline;
+  cursor: pointer;
+  margin-left: 4px;
+  font-weight: 600;
+}
+
+.link-danger:hover {
+  color: #b91c1c;
+}
+
+.danger-zone {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.danger-zone-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #dc2626;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.danger-zone-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: 4px 0 8px 0;
+  line-height: 1.4;
+}
+
+.btn-danger {
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-danger:hover {
+  background: #fecaca;
+  color: #b91c1c;
+}
