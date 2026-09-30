@@ -32,3 +32,11 @@ Thumbs.db
 *~
 .idea/
 .vscode/
+
+# Markdown files (keep only README)
+*.md
+**/*.md
+!README.md
+!**/README.md
+!README.*.md
+!**/README.*.md
